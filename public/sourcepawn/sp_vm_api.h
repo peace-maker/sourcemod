@@ -533,7 +533,7 @@ namespace SourcePawn
 		 * @param newpfn		Unused.
 		 * @param oldpfn		Unused.
 		 */
-		virtual int SetDebugBreak(void *newpfn, void *oldpfn) =0;
+		virtual int SetDebugBreak(SPVM_DEBUGBREAK newpfn, SPVM_DEBUGBREAK *oldpfn) = 0;
 
 		/**
 		 * @brief Deprecated, do not use.

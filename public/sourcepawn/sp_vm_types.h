@@ -207,4 +207,14 @@ typedef struct sp_debug_symbol_s
 	sp_fdbg_symbol_t	*sym;	/**< Pointer to original symbol */
 } sp_debug_symbol_t;
 
+
+/**
+* Breaks into a debugger
+* Params:
+*  [0] - plugin context
+*  [1] - frm
+*  [2] - cip
+*/
+typedef int(*SPVM_DEBUGBREAK)(SourcePawn::IPluginContext *, uint32_t, uint32_t);
+
 #endif //_INCLUDE_SOURCEPAWN_VM_TYPES_H

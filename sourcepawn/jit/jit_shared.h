@@ -23,17 +23,6 @@ typedef struct sp_plugin_debug_s
 	bool unpacked;				/**< Whether debug structures are unpacked */
 } sp_plugin_debug_t;
 
-class BaseContext;
-
-/**
- * Breaks into a debugger
- * Params:
- *  [0] - plugin context
- *  [1] - frm
- *  [2] - cip
- */
-typedef int (*SPVM_DEBUGBREAK)(BaseContext *, uint32_t, uint32_t);
-
 /**
  * @brief The rebased memory format of a plugin.  This differs from the on-disk structure 
  * to ensure that the format is properly read.
@@ -53,6 +42,7 @@ namespace SourcePawn
 		size_t		base_size;		/**< Size of the entire plugin base */
 		uint8_t		*memory;		/**< Data chunk */
 		const char *stringbase;		/**< base of string table */
+		SPVM_DEBUGBREAK dbreak;		/**< Debug break function */
 		sp_public_t	*publics;		/**< Public functions table */
 		uint32_t	num_publics;	/**< Number of publics. */
 		sp_pubvar_t	*pubvars;		/**< Public variables table */

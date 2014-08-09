@@ -112,9 +112,17 @@ bool BaseContext::IsDebugging()
 	return true;
 }
 
-int BaseContext::SetDebugBreak(void *newpfn, void *oldpfn)
+int BaseContext::SetDebugBreak(SPVM_DEBUGBREAK newpfn, SPVM_DEBUGBREAK *oldpfn)
 {
-	return SP_ERROR_ABORTED;
+	if (!IsDebugging())
+	{
+		return SP_ERROR_NOTDEBUGGING;
+	}
+
+	oldpfn = &m_ctx.plugin->dbreak;
+	m_ctx.plugin->dbreak = newpfn;
+
+	return SP_ERROR_NONE;
 }
 
 IPluginDebugInfo *BaseContext::GetDebugInfo()

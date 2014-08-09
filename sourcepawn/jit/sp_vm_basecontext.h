@@ -51,7 +51,7 @@ public: //IPluginContext
 	sp_context_t *GetContext();
 	sp_context_t *GetCtx();
 	bool IsDebugging();
-	int SetDebugBreak(void *newpfn, void *oldpfn);
+	int SetDebugBreak(SPVM_DEBUGBREAK newpfn, SPVM_DEBUGBREAK *oldpfn);
 	IPluginDebugInfo *GetDebugInfo();
 	int HeapAlloc(unsigned int cells, cell_t *local_addr, cell_t **phys_addr);
 	int HeapPop(cell_t local_addr);
