@@ -1288,34 +1288,26 @@ Compiler::emitOp(OPCODE op)
 
     case OP_BREAK:
     {
-	  // Ignore dbreak opcode, if no debug break listener registered.
-	  if (rt_->plugin()->dbreak == NULL)
-	  {
-        cell_t cip = uintptr_t(cip_ - 1) - uintptr_t(plugin_->pcode);
-        __ movl(Operand(cipAddr()), cip);
-	  }
-	  else
-	  {
-		// Save registers.
-		__ push(edx);
+	  // Save registers.
+	  __ push(edx);
 
-		// Call debug break handler
-		sp_context_t *ctx = rt_->GetBaseContext()->GetCtx();
-		__ push(ctx->cip);
-		__ push(ctx->frm);
-		__ push(intptr_t(rt_->GetBaseContext()));
-		__ call(ExternalAddress((void *)rt_->plugin()->dbreak));
+	  // Call debug break handler
+	  __ movl(eax, intptr_t(rt_->GetBaseContext()->GetCtx()));
 
-		// Check for errors.
-		__ movl(ecx, intptr_t(rt_->GetBaseContext()->GetCtx()));
-		__ movl(ecx, Operand(ecx, offsetof(sp_context_t, n_err)));
-		__ testl(ecx, ecx);
-		__ j(not_zero, &extern_error_);
+	  __ push(Operand(eax, offsetof(sp_context_t, cip)));
+	  __ push(Operand(eax, offsetof(sp_context_t, frm)));
+	  __ push(intptr_t(rt_->GetBaseContext()));
+	  __ call(ExternalAddress((void *)GlobalDebugBreak));
 
-		// Restore local state.
-		__ addl(esp, 12);
-		__ pop(edx);
-	  }
+	  // Check for errors.
+	  __ movl(ecx, intptr_t(rt_->GetBaseContext()->GetCtx()));
+	  __ movl(ecx, Operand(ecx, offsetof(sp_context_t, n_err)));
+	  __ testl(ecx, ecx);
+	  __ j(not_zero, &extern_error_);
+
+	  // Restore local state.
+	  __ addl(esp, 12);
+	  __ pop(edx);
 
       break;
     }
