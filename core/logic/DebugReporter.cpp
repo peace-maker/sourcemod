@@ -31,6 +31,7 @@
 
 #include <IPluginSys.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include "DebugReporter.h"
 
 DebugReport g_DbgReporter;
@@ -38,6 +39,13 @@ DebugReport g_DbgReporter;
 void DebugReport::OnSourceModAllInitialized()
 {
 	g_pSourcePawn->SetDebugListener(this);
+
+	rootmenu->AddRootConsoleCommand2("debug", "Remote debugging options for plugins", this);
+}
+
+void DebugReport::OnSourceModShutdown()
+{
+	rootmenu->RemoveRootConsoleCommand("debug", this);
 }
 
 void DebugReport::OnDebugSpew(const char *msg, ...)
@@ -198,3 +206,85 @@ int DebugReport::_GetPluginIndex(IPluginContext *ctx)
 	return pluginsys->GetPluginCount() + 1;
 }
 
+void DebugReport::OnRootConsoleCommand2(const char *cmdname, const ICommandArgs *args)
+{
+	if (args->ArgC() >= 3)
+	{
+		cmdname = args->Arg(2);
+
+		if (strcmp(cmdname, "start") == 0)
+		{
+			if (args->ArgC() < 4)
+			{
+				rootmenu->ConsolePrint("Usage: sm debug start <port>");
+				return;
+			}
+
+			int port = g_pSourcePawn2->GetRemoteDebugPort();
+			if (port != -1)
+			{
+				rootmenu->ConsolePrint("There already is a debugging session running on port %d.", port);
+				return;
+			}
+
+			char *end;
+			const char *arg = args->Arg(3);
+			port = strtol(arg, &end, 10);
+
+			if (*end == '\0')
+			{
+				if (g_pSourcePawn2->StartRemoteDebugServer(port))
+				{
+					rootmenu->ConsolePrint("Starting remote debugging server on port %d.", port);
+				}
+				else
+				{
+					rootmenu->ConsolePrint("Error starting remote debug server.");
+				}
+			}
+			else
+			{
+				rootmenu->ConsolePrint("Invalid port number.");
+			}
+			
+			return;
+		}
+		else if (strcmp(cmdname, "stop") == 0)
+		{
+			int port = g_pSourcePawn2->GetRemoteDebugPort();
+			if (port < 0)
+			{
+				rootmenu->ConsolePrint("No debugging session running.");
+				return;
+			}
+
+			if (g_pSourcePawn2->StopRemoteDebugServer())
+			{
+				rootmenu->ConsolePrint("Stopped remote debug server on port %d.", port);
+			}
+			else
+			{
+				rootmenu->ConsolePrint("Failed to stop remote debug server on port %d.", port);
+			}
+			return;
+		}
+		else if (strcmp(cmdname, "status") == 0)
+		{
+			int port = g_pSourcePawn2->GetRemoteDebugPort();
+			if (port < 0)
+			{
+				rootmenu->ConsolePrint("No debugging session running.");
+			}
+			else
+			{
+				rootmenu->ConsolePrint("Listening for remote debugging connections on port %d.", port);
+			}
+			return;
+		}
+	}
+
+	rootmenu->ConsolePrint("Debugging options:");
+	rootmenu->DrawGenericOption("start", "Starts a remote debugging session");
+	rootmenu->DrawGenericOption("stop", "Stops the remote debugging session");
+	rootmenu->DrawGenericOption("status", "Shows the current status of the debugging session");
+}
