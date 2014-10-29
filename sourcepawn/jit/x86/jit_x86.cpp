@@ -37,6 +37,7 @@
 #include "../engine2.h"
 #include "../BaseRuntime.h"
 #include "../sp_vm_basecontext.h"
+#include "../debugger.h"
 #include "watchdog_timer.h"
 #include "interpreter.h"
 
@@ -1291,6 +1292,11 @@ Compiler::emitOp(OPCODE op)
 	  // Save registers.
 	  __ push(edx);
 
+	  __ push(alt);
+	  __ push(pri);
+
+	  __ push(stk);
+
 	  // Call debug break handler
 	  __ movl(eax, intptr_t(rt_->GetBaseContext()->GetCtx()));
 
@@ -1306,7 +1312,7 @@ Compiler::emitOp(OPCODE op)
 	  __ j(not_zero, &extern_error_);
 
 	  // Restore local state.
-	  __ addl(esp, 12);
+	  __ addl(esp, 24);
 	  __ pop(edx);
 
       break;

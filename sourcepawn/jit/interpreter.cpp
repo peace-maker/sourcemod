@@ -19,6 +19,7 @@
 #include "interpreter.h"
 #include "opcodes.h"
 #include "watchdog_timer.h"
+#include "../debugger.h"
 
 #define STACK_MARGIN 64
 
@@ -865,7 +866,8 @@ Interpret(BaseRuntime *rt, uint32_t aCodeStart, cell_t *rval)
       }
 
       case OP_BREAK:
-        ctx->cip = uintptr_t(cip - 1) - uintptr_t(plugin->pcode);
+        //ctx->cip = uintptr_t(cip - 1) - uintptr_t(plugin->pcode);
+		GlobalDebugBreak(rt->GetBaseContext(), ctx->frm, *cip, *stk, pri, alt);
         break;
 
       case OP_BOUNDS:

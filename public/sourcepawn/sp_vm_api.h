@@ -40,7 +40,7 @@
 
 /** SourcePawn Engine API Version */
 #define SOURCEPAWN_ENGINE_API_VERSION	4
-#define SOURCEPAWN_ENGINE2_API_VERSION	6
+#define SOURCEPAWN_ENGINE2_API_VERSION	7
 
 #if !defined SOURCEMOD_BUILD
 #define SOURCEMOD_BUILD
@@ -1352,6 +1352,28 @@ namespace SourcePawn
 		 * @param tool      Profiling tool.
 		 */
 		virtual void SetProfilingTool(IProfilingTool *tool) =0;
+
+		/**
+		 * @brief Starts a GDB remote debugging server which listens on the given port.
+		 *
+		 * @param port      Port on which the server should listen on.
+		 * @return          True if server was started, false otherwise.
+		 */
+		virtual bool StartRemoteDebugServer(int port) =0;
+
+		/**
+		 * @brief Stops the GDB remote debugging server.
+		 *
+		 * @return          True if the server was stopped, false otherwise.
+		 */
+		virtual bool StopRemoteDebugServer() =0;
+
+		/**
+		 * @brief Gets the port the GDB remote debugging server listens on.
+		 * 
+		 * @return          The port the server listens on or -1 if not running.
+		 */
+		virtual int GetRemoteDebugPort() =0;
 	};
 };
 

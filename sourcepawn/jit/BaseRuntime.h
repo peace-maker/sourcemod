@@ -11,8 +11,6 @@
 class BaseContext;
 class JitFunction;
 
-int GlobalDebugBreak(BaseContext *ctx, uint32_t frm, uint32_t cip);
-
 class DebugInfo : public IPluginDebugInfo
 {
 public:

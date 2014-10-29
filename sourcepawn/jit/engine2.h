@@ -4,6 +4,8 @@
 
 #include <sp_vm_api.h>
 
+class SPDebugger;
+
 namespace SourcePawn
 {
 	/** 
@@ -13,6 +15,7 @@ namespace SourcePawn
 	{
 	public:
 		SourcePawnEngine2();
+		~SourcePawnEngine2();
 	public:
 		unsigned int GetAPIVersion();
 		const char *GetEngineName();
@@ -54,14 +57,24 @@ namespace SourcePawn
 			profiler_ = tool;
 		}
 
+		bool StartRemoteDebugServer(int port);
+		bool StopRemoteDebugServer();
+		int GetRemoteDebugPort();
+
 	public:
 		IProfilingTool *GetProfiler() {
 			return profiler_;
+		}
+	public:
+		SPDebugger *GetDebugger() {
+			return debugger_;
 		}
 	private:
 		IProfilingTool *profiler_;
 		bool jit_enabled_;
 		bool profiling_enabled_;
+	private:
+		SPDebugger *debugger_;
 	};
 }
 

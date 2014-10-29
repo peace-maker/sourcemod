@@ -19,16 +19,6 @@ IsPointerCellAligned(void *p)
   return uintptr_t(p) % 4 == 0;
 }
 
-// Always call the correct function
-int GlobalDebugBreak(BaseContext *ctx, uint32_t frm, uint32_t cip)
-{
-	SPVM_DEBUGBREAK dbgbreak = ctx->GetCtx()->plugin->dbreak;
-	if (dbgbreak != NULL)
-		dbgbreak(ctx, frm, cip);
-		
-	return SP_ERROR_NONE;
-}
-
 BaseRuntime::BaseRuntime()
   : m_Debug(&m_plugin),
     m_pCtx(NULL), 

@@ -9,6 +9,7 @@
 #include "sp_vm_engine.h"
 #include "watchdog_timer.h"
 #include <sourcemod_version.h>
+#include "debugger.h"
 
 using namespace SourcePawn;
 
@@ -16,6 +17,12 @@ SourcePawnEngine2::SourcePawnEngine2()
 {
 	profiler_ = NULL;
 	jit_enabled_ = true;
+	debugger_ = new SPDebugger();
+}
+
+SourcePawnEngine2::~SourcePawnEngine2()
+{
+	delete debugger_;
 }
 
 IPluginRuntime *SourcePawnEngine2::LoadPlugin(ICompilation *co, const char *file, int *err)
@@ -210,3 +217,17 @@ bool SourcePawnEngine2::InstallWatchdogTimer(size_t timeout_ms)
 	return g_WatchdogTimer.Initialize(timeout_ms);
 }
 
+bool SourcePawnEngine2::StartRemoteDebugServer(int port)
+{
+	return debugger_->StartDebugger(port);
+}
+
+bool SourcePawnEngine2::StopRemoteDebugServer()
+{
+	return debugger_->StopDebugger();
+}
+
+int SourcePawnEngine2::GetRemoteDebugPort()
+{
+	return debugger_->GetPort();
+}

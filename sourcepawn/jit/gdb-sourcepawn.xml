@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<!DOCTYPE feature SYSTEM "gdb-target.dtd">
+<target version="1.0">
+<feature name="net.alliedmodders.sourcepawn.core">
+  <reg name="pri" bitsize="32" group="general"/>
+  <reg name="alt" bitsize="32" group="general"/>
+  <reg name="cip" bitsize="32" type="code_ptr" group="general"/>
+  <reg name="sp" bitsize="32" type="data_ptr" group="general"/>
+  <reg name="frm" bitsize="32" type="data_ptr" group="general"/>
+</feature>
+</target>
