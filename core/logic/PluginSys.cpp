@@ -2333,10 +2333,64 @@ void CPluginManager::OnRootConsoleCommand(const char *cmdname, const CCommand &c
 
 			return;
 		}
+		else if (strcmp(cmd, "debug") == 0)
+		{
+			if (argcount < 4)
+			{
+				rootmenu->ConsolePrint("[SM] Usage: sm plugins debug <#|file>");
+				return;
+			}
+
+			CPlugin *pl;
+			char *end;
+			const char *arg = smcore.Arg(command, 3);
+			int id = strtol(arg, &end, 10);
+
+			if (*end == '\0')
+			{
+				pl = GetPluginByOrder(id);
+				if (!pl)
+				{
+					rootmenu->ConsolePrint("[SM] Plugin index %d not found.", id);
+					return;
+				}
+			}
+			else
+			{
+				char pluginfile[256];
+				const char *ext = libsys->GetFileExtension(arg) ? "" : ".smx";
+				g_pSM->BuildPath(Path_None, pluginfile, sizeof(pluginfile), "%s%s", arg, ext);
+
+				if (!m_LoadLookup.retrieve(pluginfile, &pl))
+				{
+					rootmenu->ConsolePrint("[SM] Plugin %s is not loaded.", pluginfile);
+					return;
+				}
+			}
+
+			char name[PLATFORM_MAX_PATH];
+			const sm_plugininfo_t *info = pl->GetPublicInfo();
+			if (pl->GetStatus() <= Plugin_Paused) 
+				strcpy(name, (IS_STR_FILLED(info->name)) ? info->name : pl->GetFilename());
+			else
+				strcpy(name, pl->GetFilename());
+
+			if (pl->GetBaseContext()->StartDebugger())
+			{
+				rootmenu->ConsolePrint("[SM] Pausing Plugin %s for debugging. Will halt on next instruction.", name);
+			}
+			else
+			{
+				rootmenu->ConsolePrint("[SM] Failed to pause plugin %s for debugging.", name);
+			}
+
+			return;
+		}
 	}
 
 	/* Draw the main menu */
 	rootmenu->ConsolePrint("SourceMod Plugins Menu:");
+	rootmenu->DrawGenericOption("debug", "Debug a plugin");
 	rootmenu->DrawGenericOption("info", "Information about a plugin");
 	rootmenu->DrawGenericOption("list", "Show loaded plugins");
 	rootmenu->DrawGenericOption("load", "Load a plugin");

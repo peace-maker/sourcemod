@@ -56,7 +56,13 @@ class SmxV1Image
   const char *LookupFile(uint32_t code_offset) KE_OVERRIDE;
   const char *LookupFunction(uint32_t code_offset) KE_OVERRIDE;
   bool LookupLine(uint32_t code_offset, uint32_t *line) KE_OVERRIDE;
-
+  bool GetFunctionAddress(const char *function, const char *file, uint32_t *funcaddr) KE_OVERRIDE;
+  bool GetLineAddress(uint32_t line, const char *file, uint32_t *addr) KE_OVERRIDE;
+  const char *FindFileByPartialName(const char *partialname) KE_OVERRIDE;
+  const char *GetTagName(uint32_t tag);
+  bool GetVariable(const char *symname, uint32_t scopeaddr, const sp_fdbg_symbol_t **sym);
+  bool GetArrayDim(const sp_fdbg_symbol_t *sym, const sp_fdbg_arraydim_t **symdim);
+  
  private:
    struct Section
    {
@@ -155,6 +161,9 @@ class SmxV1Image
   const List<sp_file_pubvars_t> &pubvars() const {
     return pubvars_;
   }
+  const List<sp_file_tag_t> &tags() const {
+    return tags_;
+  }
 
  protected:
   bool error(const char *msg) {
@@ -168,11 +177,14 @@ class SmxV1Image
   bool validatePublics();
   bool validatePubvars();
   bool validateNatives();
+  bool validateTags();
   bool validateDebugInfo();
 
  private:
   template <typename SymbolType, typename DimType>
   const char *lookupFunction(const SymbolType *syms, uint32_t addr);
+  template <typename SymbolType, typename DimType>
+  bool getFunctionAddress(const SymbolType *syms, const char *name, uint32_t *addr, uint32_t *index);
 
  private:
   sp_file_hdr_t *hdr_;
@@ -188,7 +200,9 @@ class SmxV1Image
   List<sp_file_publics_t> publics_;
   List<sp_file_natives_t> natives_;
   List<sp_file_pubvars_t> pubvars_;
+  List<sp_file_tag_t> tags_;
 
+public:
   const Section *debug_names_section_;
   const char *debug_names_;
   const sp_fdbg_info_t *debug_info_;

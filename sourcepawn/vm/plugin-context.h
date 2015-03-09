@@ -35,6 +35,7 @@ static const size_t SP_MAX_RETURN_STACK = 1024;
 
 class Environment;
 class PluginContext;
+class Debugger;
 
 class PluginContext : public IPluginContext
 {
@@ -50,6 +51,7 @@ class PluginContext : public IPluginContext
   bool IsDebugging();
   int SetDebugBreak(void *newpfn, void *oldpfn);
   IPluginDebugInfo *GetDebugInfo();
+  Debugger *GetDebugger();
   int HeapAlloc(unsigned int cells, cell_t *local_addr, cell_t **phys_addr);
   int HeapPop(cell_t local_addr);
   int HeapRelease(cell_t local_addr);
@@ -97,6 +99,7 @@ class PluginContext : public IPluginContext
   void ReportFatalError(const char *fmt, ...) KE_OVERRIDE;
   void ReportFatalErrorVA(const char *fmt, va_list ap) KE_OVERRIDE;
   void ReportErrorNumber(int error) KE_OVERRIDE;
+  bool StartDebugger() KE_OVERRIDE;
 
   bool Invoke(funcid_t fnid, const cell_t *params, unsigned int num_params, cell_t *result);
 
@@ -170,6 +173,7 @@ class PluginContext : public IPluginContext
  private:
   Environment *env_;
   PluginRuntime *m_pRuntime;
+  Debugger *debugger_;
   uint8_t *memory_;
   uint32_t data_size_;
   uint32_t mem_size_;

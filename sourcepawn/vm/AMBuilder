@@ -37,6 +37,7 @@ library.sources += [
   'code-allocator.cpp',
   'code-stubs.cpp',
   'compiled-function.cpp',
+  'debugger.cpp',
   'environment.cpp',
   'file-utils.cpp',
   'md5/md5.cpp',

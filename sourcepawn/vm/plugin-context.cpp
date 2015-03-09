@@ -20,6 +20,7 @@
 #include "x86/jit_x86.h"
 #include "environment.h"
 #include "compiled-function.h"
+#include "debugger.h"
 
 using namespace sp;
 using namespace SourcePawn;
@@ -55,12 +56,16 @@ PluginContext::PluginContext(PluginRuntime *pRuntime)
   tracker_.pBase = (ucell_t *)malloc(1024);
   tracker_.pCur = tracker_.pBase;
   tracker_.size = 1024 / sizeof(cell_t);
+  
+  // Add debugger instance
+  debugger_ = new Debugger(this);
 }
 
 PluginContext::~PluginContext()
 {
   free(tracker_.pBase);
   delete[] memory_;
+  delete debugger_;
 }
 
 bool
@@ -89,6 +94,9 @@ PluginContext::Initialize()
   } else {
     m_pNullString = NULL;
   }
+  
+  if (!debugger_->Initialize())
+    return false;
 
   return true;
 }
@@ -121,6 +129,12 @@ IPluginDebugInfo *
 PluginContext::GetDebugInfo()
 {
   return NULL;
+}
+
+Debugger *
+PluginContext::GetDebugger()
+{
+  return debugger_;
 }
 
 int
@@ -950,4 +964,17 @@ void
 PluginContext::ReportErrorNumber(int error)
 {
   env_->ReportError(error);
+}
+
+bool
+PluginContext::StartDebugger()
+{
+  if (!IsDebugging())
+    return false;
+  
+  if (runtime()->IsPaused())
+    return false;
+  
+  debugger_->SetRunmode(STEPPING);
+  return true;
 }

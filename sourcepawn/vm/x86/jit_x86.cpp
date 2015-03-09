@@ -39,6 +39,7 @@
 #include "environment.h"
 #include "code-stubs.h"
 #include "x86-utils.h"
+#include "debugger.h"
 
 using namespace sp;
 
@@ -1247,7 +1248,23 @@ Compiler::emitOp(OPCODE op)
     // live debugging, and if we did, we could build this map from the lines
     // table. So we don't generate any code here.
     case OP_BREAK:
+    {
+      // Save registers.
+      __ push(pri);
+      __ push(alt);
+      
+      // Get the context pointer and call the debugging break handler.
+      __ push(reinterpret_cast<const uint8_t *>(cip_) - rt_->code().bytes);
+      __ push(intptr_t(rt_->GetBaseContext()));
+      __ call(ExternalAddress((void *)GlobalDebugBreak));
+      __ addl(esp, 8);
+      __ testl(eax, eax);
+      jumpOnError(not_zero);
+      
+      __ pop(alt);
+      __ pop(pri);
       break;
+    }
 
     // This should never be hit.
     case OP_HALT:

@@ -24,7 +24,7 @@
 
 /** SourcePawn Engine API Versions */
 #define SOURCEPAWN_ENGINE2_API_VERSION 0xA
-#define SOURCEPAWN_API_VERSION	 0x020A
+#define SOURCEPAWN_API_VERSION	 0x020B
 
 namespace SourceMod {
 	struct IdentityToken_t;
@@ -948,6 +948,13 @@ namespace SourcePawn
 		 * @param number       Error number.
 		 */
 		virtual void ReportErrorNumber(int error) = 0;
+                
+                /**
+                 * @brief Start debugging this plugin. Pauses on the next break.
+                 * 
+                 * @return True on success, false otherwise.
+                 */
+                virtual bool StartDebugger() = 0;
 	};
 
 	/**
