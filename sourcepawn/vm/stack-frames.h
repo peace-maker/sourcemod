@@ -115,9 +115,9 @@ class FrameIterator : public SourcePawn::IFrameIterator
   unsigned LineNumber() const KE_OVERRIDE;
   IPluginContext *Context() const KE_OVERRIDE;
 
+  cell_t findCip() const;
  private:
   void nextInvokeFrame();
-  cell_t findCip() const;
 
  private:
   InvokeFrame *ivk_;

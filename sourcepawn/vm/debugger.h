@@ -59,6 +59,9 @@ namespace sp {
   public:
     Debugger(PluginContext *context);
     bool Initialize();
+    bool active();
+    void Activate();
+    void Deactivate();
 
   public:
     Breakpoint *AddBreakpoint(const char *file, unsigned int line, bool temporary);
@@ -68,6 +71,12 @@ namespace sp {
     int CheckBreakpoint(cell_t cip);
     int FindBreakpoint(char *breakpoint);
     void ListBreakpoints();
+    
+    bool AddWatch(const char *symname);
+    bool ClearWatch(const char *symname);
+    bool ClearWatch(uint32_t num);
+    void ClearAllWatches();
+    void ListWatches(cell_t cip);
     
     bool GetSymbolValue(const sp_fdbg_symbol_t *sym, int index, cell_t *value);
     bool SetSymbolValue(const sp_fdbg_symbol_t *sym, int index, cell_t value);
@@ -95,6 +104,7 @@ namespace sp {
     cell_t lastfrm_;
     uint32_t lastline_;
     const char *currentfile_;
+    bool active_;
 
     struct BreakpointMapPolicy {
 
@@ -109,6 +119,21 @@ namespace sp {
     typedef ke::HashMap<ucell_t, Breakpoint *, BreakpointMapPolicy> BreakpointMap;
 
     BreakpointMap breakpoint_map_;
+    
+    struct WatchTablePolicy {
+      typedef const char *Payload;
+      
+      static uint32_t hash(const char *str) {
+        return ke::HashCharSequence(str, strlen(str));
+      }
+      
+      static bool matches(const char *key, const char *str) {
+        return strcmp(key, str) == 0;
+      }
+    };
+    typedef ke::HashTable<WatchTablePolicy> WatchTable;
+    
+    WatchTable watch_table_;
   };
 
 } // namespace sp
