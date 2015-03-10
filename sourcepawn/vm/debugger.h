@@ -22,7 +22,8 @@ namespace sp {
 
   using namespace SourcePawn;
 
-  int GlobalDebugBreak(PluginContext *ctx, cell_t cip);
+  int InvokeDebugger(PluginContext *ctx);
+  static void DumpStack(IFrameIterator &iter);
   
   static const uint32_t MAXLINELENGTH = 128;
 

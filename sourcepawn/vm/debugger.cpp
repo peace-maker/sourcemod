@@ -1,7 +1,22 @@
+// vim: set sts=2 ts=8 sw=2 tw=99 et:
+// 
+// Copyright (C) 2006-2015 AlliedModders LLC
+// 
+// This file is part of SourcePawn. SourcePawn is free software: you can
+// redistribute it and/or modify it under the terms of the GNU General Public
+// License as published by the Free Software Foundation, either version 3 of
+// the License, or (at your option) any later version.
+//
+// You should have received a copy of the GNU General Public License along with
+// SourcePawn. If not, see http://www.gnu.org/licenses/.
+//
 #include "debugger.h"
 #include "smx-v1-image.h"
 #include <cctype>
 #include "sp_typeutil.h"
+#include "environment.h"
+#include "x86/frames-x86.h"
+#include "stack-frames.h"
 
 namespace sp {
 
@@ -16,11 +31,38 @@ enum {
 };
 #define DISP_MASK 0x0f
 
-int GlobalDebugBreak(PluginContext *ctx, cell_t cip)
+int InvokeDebugger(PluginContext *ctx)
 {
   if(!ctx->IsDebugging())
     return SP_ERROR_NOTDEBUGGING;
-
+  
+  ExitFrame exitfrm = Environment::get()->exit_frame();
+  assert(exitfrm.exit_sp());
+  
+  const intptr_t *sp = exitfrm.exit_sp();
+  
+  const JitExitFrameForHelper *exit =
+      JitExitFrameForHelper::FromExitSp(sp);
+  
+  void *pc = exit->return_address;
+  assert(pc || exit->isCompileFunction());
+  
+  // The function owning pc_ is in the previous frame.
+  const JitFrame *frame = exit->prev();
+  ucell_t function_cip = frame->function_cip;
+  sp = reinterpret_cast<const intptr_t *>(frame);
+  
+  CompiledFunction *fn = ctx->runtime()->GetJittedFunctionByOffset(function_cip);
+  if (!fn)
+    return SP_ERROR_NOTDEBUGGING;
+  
+  // Find the correct cip inside the function
+  cell_t cip;
+  if (pc)
+    cip = fn->FindCipByPc(pc);
+  else
+    cip = function_cip;
+  
   Debugger *debugger = ctx->GetDebugger();
   
   // when running until the function exit, check the frame address
@@ -66,7 +108,8 @@ int GlobalDebugBreak(PluginContext *ctx, cell_t cip)
   debugger->HandleInput(ctx, cip, bp, line);
   
   // step OVER functions (so save the stack frame)
-  if (debugger->runmode() == Runmode::STEPOVER)
+  if (debugger->runmode() == Runmode::STEPOVER ||
+      debugger->runmode() == Runmode::STEPOUT)
     debugger->SetLastFrame(ctx->frm());
 
   return SP_ERROR_NONE;
@@ -247,7 +290,8 @@ Debugger::ListCommands(char *command)
     printf("\tno additional information\n");
   }
   else {
-    printf("\tBREAK\t\tset breakpoint at line number or variable name\n"
+    printf("\tB(ack)T(race)\t\tdisplay the stack trace\n"
+           "\tBREAK\t\tset breakpoint at line number or variable name\n"
            "\tCBREAK\t\tremove breakpoint\n"
            //"\tCW(atch)\tremove a \"watchpoint\"\n"
            "\tD(isp)\t\tdisplay the value of a variable, list variables\n"
@@ -308,7 +352,7 @@ Debugger::HandleInput(PluginContext *ctx, cell_t cip, int bp, uint32_t lineno)
       ListCommands(result ? command : nullptr);
     }
     else if (!stricmp(command, "quit")) {
-      printf("Clearing all breakpoints. Running normally.");
+      printf("Clearing all breakpoints. Running normally.\n");
       ClearAllBreakpoints();
       SetRunmode(RUNNING);
       return;
@@ -357,6 +401,11 @@ Debugger::HandleInput(PluginContext *ctx, cell_t cip, int bp, uint32_t lineno)
         cursor += sizeof(sp_fdbg_symbol_t);
       }
     }
+    else if (!stricmp(command, "bt") || !stricmp(command, "backtrace")) {
+      printf("Stack trace:\n");
+      FrameIterator frames;
+      DumpStack(frames);
+    }
     else if (!stricmp(command, "break") || !stricmp(command, "tbreak")) {
       if (*params == '\0') {
         ListBreakpoints();
@@ -398,7 +447,7 @@ Debugger::HandleInput(PluginContext *ctx, cell_t cip, int bp, uint32_t lineno)
         else {
           uint32_t bpline = 0;
           image->LookupLine(bp->addr(), &bpline);
-          printf("Set breakpoint %d in file %s on line %d", bp->number(), filename, bpline);
+          printf("Set breakpoint %d in file %s on line %d", bp->number(), skippath(filename), bpline);
           if (bp->name() != nullptr)
             printf(" in function %s", bp->name());
           printf(" at %x\n", bp->addr());
@@ -601,12 +650,17 @@ Debugger::CheckBreakpoint(cell_t cip)
   /* when the "break" statement comes, the instruction pointer is already
    * incremented; we must adjust for this
    */
-  cip -= sizeof(cell_t);
+  //cip -= sizeof(cell_t);
   BreakpointMap::Result result = breakpoint_map_.find(cip);
   if(!result.found())
     return -1;
   
-  return result->value->number();
+  int bp_number = result->value->number();
+  // Remove the temporary breakpoint
+  if (bp_number == 0)
+    ClearBreakpoint(bp_number);
+  
+  return bp_number;
 }
 
 Breakpoint *
@@ -970,6 +1024,28 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[3], int idxlevel
       printf("(invalid number of dimensions)");
     else
       printf("?");
+  }
+}
+
+void
+DumpStack(IFrameIterator &iter)
+{
+  int index = 0;
+  for (; !iter.Done(); iter.Next(), index++) {
+    const char *name = iter.FunctionName();
+    if (!name) {
+      fprintf(stdout, "  [%d] <unknown>\n", index);
+      continue;
+    }
+
+    if (iter.IsScriptedFrame()) {
+      const char *file = iter.FilePath();
+      if (!file)
+        file = "<unknown>";
+      fprintf(stdout, "  [%d] %s::%s, line %d\n", index, file, name, iter.LineNumber());
+    } else {
+      fprintf(stdout, "  [%d] %s()\n", index, name);
+    }
   }
 }
 

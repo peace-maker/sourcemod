@@ -107,6 +107,7 @@ class Compiler
   void emitErrorPath(Label *dest, int code);
   void emitErrorPaths();
   void emitFloatCmp(ConditionCode cc);
+  void emitDebugBreakHandler();
   void jumpOnError(ConditionCode cc, int err = 0);
   void emitThrowPathIfNeeded(int err);
 
@@ -150,6 +151,9 @@ class Compiler
   Label throw_error_code_[SP_MAX_ERROR_CODES];
   Label report_error_;
   Label return_reported_error_;
+  
+  // Debugging.
+  Label debug_break_;
 
   ke::Vector<CallThunk *> thunks_; //:TODO: free
 };

@@ -258,6 +258,9 @@ Compiler::emit(int *errp)
     emitCipMapping(jump.cip);
   }
 
+  // Common path for invoking debugger.
+  emitDebugBreakHandler();
+  
   // This has to come last.
   emitErrorPaths();
 
@@ -1244,25 +1247,11 @@ Compiler::emitOp(OPCODE op)
       break;
     }
 
-    // This opcode is used to note where line breaks occur. We don't support
-    // live debugging, and if we did, we could build this map from the lines
-    // table. So we don't generate any code here.
+    // This opcode is used to note where line breaks occur.
     case OP_BREAK:
     {
-      // Save registers.
-      __ push(pri);
-      __ push(alt);
-      
-      // Get the context pointer and call the debugging break handler.
-      __ push(reinterpret_cast<const uint8_t *>(cip_) - rt_->code().bytes);
-      __ push(intptr_t(rt_->GetBaseContext()));
-      __ call(ExternalAddress((void *)GlobalDebugBreak));
-      __ addl(esp, 8);
-      __ testl(eax, eax);
-      jumpOnError(not_zero);
-      
-      __ pop(alt);
-      __ pop(pri);
+      __ call(&debug_break_);
+      emitCipMapping(op_cip_);
       break;
     }
 
@@ -1847,4 +1836,25 @@ Compiler::emitThrowPathIfNeeded(int err)
   __ bind(&throw_error_code_[err]);
   __ movl(eax, err);
   __ jmp(&report_error_);
+}
+
+void 
+Compiler::emitDebugBreakHandler()
+{
+  // Common path for invoking debugger.
+  __ bind(&debug_break_);
+  __ movl(ecx, intptr_t(&Environment::get()->exit_frame()));
+  __ movl(Operand(ecx, ExitFrame::offsetOfExitNative()), -1);
+  __ movl(Operand(ecx, ExitFrame::offsetOfExitSp()), esp);
+  
+  // Align the stack
+  __ subl(esp, 12);
+  
+  // Get the context pointer and call the debugging break handler.
+  __ push(intptr_t(rt_->GetBaseContext()));
+  __ call(ExternalAddress((void *)InvokeDebugger));
+  __ addl(esp, 16);
+  __ testl(eax, eax);
+  jumpOnError(not_zero);
+  __ ret();
 }
