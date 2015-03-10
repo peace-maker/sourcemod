@@ -802,35 +802,31 @@ const char *SmxV1Image::GetTagName(uint32_t tag)
 
 bool SmxV1Image::GetVariable(const char *symname, uint32_t scopeaddr, const sp_fdbg_symbol_t **sym)
 {
-  uint32_t codestart, codeend, index;
+  uint32_t codestart = 0;
+  uint32_t codeend = 0;
   
   *sym = nullptr;
-  codestart = codeend = 0;
-  index = 0;
   // display all variables that are in scope
   const uint8_t *cursor = reinterpret_cast<const uint8_t *>(debug_syms_);
   const uint8_t *cursor_end = cursor + debug_symbols_section_->size;
   
-  sp_fdbg_symbol_t *symbol = (sp_fdbg_symbol_t *)reinterpret_cast<const sp_fdbg_symbol_t *>(cursor);
+  sp_fdbg_symbol_t *symbol;
   for ( ;; ) {
+    symbol = (sp_fdbg_symbol_t *)reinterpret_cast<const sp_fdbg_symbol_t *>(cursor);
     // find (next) matching variable
-    while (index < debug_info_->num_syms &&
+    while ((symbol->codestart > scopeaddr || symbol->codeend < scopeaddr) ||
            (symbol->ident == sp::IDENT_FUNCTION ||
-            strcmp(debug_names_ + symbol->name, symname) != 0) &&
-           (symbol->codestart > scopeaddr || symbol->codeend < scopeaddr)) {
-      
-      if (cursor + sizeof(sp_fdbg_symbol_t) > cursor_end)
-        break;
-
-      symbol = (sp_fdbg_symbol_t *)reinterpret_cast<const sp_fdbg_symbol_t *>(cursor);
+            strcmp(debug_names_ + symbol->name, symname) != 0)) {
 
       if (symbol->dimcount > 0)
         cursor += sizeof(sp_fdbg_arraydim_t) * symbol->dimcount;
       cursor += sizeof(sp_fdbg_symbol_t);
-      index++;
+      
+      if (cursor + sizeof(sp_fdbg_symbol_t) > cursor_end)
+        break;
+      
+      symbol = (sp_fdbg_symbol_t *)reinterpret_cast<const sp_fdbg_symbol_t *>(cursor);
     }
-    if (index >= debug_info_->num_syms)
-      break;
     
     // check the range, keep a pointer to the symbol with the smallest range
     if (!strcmp(debug_names_ + symbol->name, symname) &&
@@ -847,7 +843,9 @@ bool SmxV1Image::GetVariable(const char *symname, uint32_t scopeaddr, const sp_f
     if (symbol->dimcount > 0)
       cursor += sizeof(sp_fdbg_arraydim_t) * symbol->dimcount;
     cursor += sizeof(sp_fdbg_symbol_t);
-    index++;
+    
+    if (cursor + sizeof(sp_fdbg_symbol_t) > cursor_end)
+      break;
   }
   
   return *sym != nullptr;
