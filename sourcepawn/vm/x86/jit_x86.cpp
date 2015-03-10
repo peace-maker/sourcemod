@@ -1848,12 +1848,12 @@ Compiler::emitDebugBreakHandler()
   __ movl(Operand(ecx, ExitFrame::offsetOfExitSp()), esp);
   
   // Align the stack
-  __ subl(esp, 12);
+  __ subl(esp, 8);
   
   // Get the context pointer and call the debugging break handler.
   __ push(intptr_t(rt_->GetBaseContext()));
   __ call(ExternalAddress((void *)InvokeDebugger));
-  __ addl(esp, 16);
+  __ addl(esp, 12);
   __ testl(eax, eax);
   jumpOnError(not_zero);
   __ ret();
