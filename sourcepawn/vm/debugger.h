@@ -17,6 +17,7 @@
 #include "plugin-context.h"
 #include <smx/smx-headers.h>
 #include <smx/smx-v1.h>
+#include "stack-frames.h"
 
 namespace sp {
 
@@ -63,6 +64,8 @@ namespace sp {
     void Activate();
     void Deactivate();
 
+    void ReportError(const IErrorReport &report, FrameIterator &iter);
+    
   public:
     Breakpoint *AddBreakpoint(const char *file, unsigned int line, bool temporary);
     Breakpoint *AddBreakpoint(const char *file, const char *function, bool temporary);
@@ -95,7 +98,7 @@ namespace sp {
     void SetCurrentFile(const char *file);
     
   public:
-    void HandleInput(PluginContext *ctx, cell_t cip, int bp, uint32_t line);
+    void HandleInput(cell_t cip, int bp, uint32_t line);
     void ListCommands(char *command);
     
   private:

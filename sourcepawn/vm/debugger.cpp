@@ -16,7 +16,6 @@
 #include "sp_typeutil.h"
 #include "environment.h"
 #include "x86/frames-x86.h"
-#include "stack-frames.h"
 #include "x86/jit_x86.h"
 #include "watchdog_timer.h"
 
@@ -88,7 +87,7 @@ int InvokeDebugger(PluginContext *ctx)
   // Tell the watchdog to take a break.
   Environment::get()->watchdog()->SetIgnore(true);
   
-  debugger->HandleInput(ctx, cip, bp, line);
+  debugger->HandleInput(cip, bp, line);
   
   // Enable the watchdog timer again.
   Environment::get()->watchdog()->SetIgnore(false);
@@ -157,6 +156,46 @@ Debugger::Deactivate()
   ClearAllBreakpoints();
   ClearAllWatches();
   SetRunmode(RUNNING);
+}
+
+void
+Debugger::ReportError(const IErrorReport& report, FrameIterator& iter)
+{
+  printf("STOP on exception: %s\n", report.Message());
+  
+  iter.Reset();
+  
+  // Find the nearest scripted frame.
+  for (; !iter.Done(); iter.Next()) {
+    if (iter.IsScriptedFrame()) {
+      break;
+    }
+  }
+  
+  cell_t cip = iter.findCip();
+  
+  uint32_t line = 0;
+  if (context_->runtime()->LookupLine(cip, &line) == SP_ERROR_NONE) {
+    SetLastLine(line);
+  }
+  
+  const char *filename;
+  if (context_->runtime()->LookupFile(cip, &filename) == SP_ERROR_NONE) {
+    SetCurrentFile(filename);
+  }
+  
+  // Tell the watchdog to take a break.
+  Environment::get()->watchdog()->SetIgnore(true);
+  
+  HandleInput(cip, -1, line);
+  
+  // Enable the watchdog timer again.
+  Environment::get()->watchdog()->SetIgnore(false);
+  
+  // step OVER functions (so save the stack frame)
+  if (runmode() == Runmode::STEPOVER ||
+      runmode() == Runmode::STEPOUT)
+    SetLastFrame(context_->frm());
 }
 
 Runmode
@@ -334,7 +373,7 @@ Debugger::ListCommands(char *command)
 }
 
 void
-Debugger::HandleInput(PluginContext *ctx, cell_t cip, int bp, uint32_t lineno)
+Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
 {
   static char lastcommand[32] = "";
   LegacyImage *image = context_->runtime()->image();
@@ -947,7 +986,7 @@ Debugger::ListWatches(cell_t cip)
       printf("\n");
     }
     else {
-      printf("%d  %-12s --not in scope--", num++, symname);
+      printf("%d  %-12s --not in scope--\n", num++, symname);
     }
   }
 }

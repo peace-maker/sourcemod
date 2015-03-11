@@ -16,6 +16,7 @@
 #include "api.h"
 #include "code-stubs.h"
 #include "watchdog_timer.h"
+#include "debugger.h"
 #include <stdarg.h>
 
 using namespace sp;
@@ -343,6 +344,10 @@ Environment::ReportError(int code, const char *message)
   // For now, we always report exceptions even if they might be handled.
   if (debugger_)
     debugger_->ReportError(report, iter);
+  
+  // See if the plugin is being debugged
+  if (top_ && top_->cx()->GetDebugger()->active())
+    top_->cx()->GetDebugger()->ReportError(report, iter);
 }
 
 void
