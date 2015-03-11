@@ -18,6 +18,7 @@
 #include "x86/frames-x86.h"
 #include "stack-frames.h"
 #include "x86/jit_x86.h"
+#include "watchdog_timer.h"
 
 namespace sp {
 
@@ -84,7 +85,13 @@ int InvokeDebugger(PluginContext *ctx)
     debugger->SetCurrentFile(filename);
   }
   
+  // Tell the watchdog to take a break.
+  Environment::get()->watchdog()->SetIgnore(true);
+  
   debugger->HandleInput(ctx, cip, bp, line);
+  
+  // Enable the watchdog timer again.
+  Environment::get()->watchdog()->SetIgnore(false);
   
   // step OVER functions (so save the stack frame)
   if (debugger->runmode() == Runmode::STEPOVER ||
@@ -510,9 +517,6 @@ Debugger::HandleInput(PluginContext *ctx, cell_t cip, int bp, uint32_t lineno)
             bool display = true;
             if(sym->name < imagev1->debug_names_section_->size) {
               printf("%s\t", imagev1->debug_names_ + sym->name);
-              if (!strcmp(imagev1->debug_names_ + sym->name, "NULL_VECTOR") ||
-                  !strcmp(imagev1->debug_names_ + sym->name, "NULL_STRING"))
-                display = false;
             }
             
             if (display)
