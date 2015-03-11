@@ -905,7 +905,7 @@ Debugger::AddWatch(const char* symname) {
   WatchTable::Insert i = watch_table_.findForAdd(symname);
   if (i.found())
     return false;
-  watch_table_.add(i, strdup(symname));
+  watch_table_.add(i, symname);
   return true;
 }
 
@@ -946,7 +946,7 @@ Debugger::ListWatches(cell_t cip)
 {
   SmxV1Image *imagev1 = (SmxV1Image *)context_->runtime()->image();
   uint32_t num = 1;
-  const char *symname;
+  AString symname;
   int dim;
   uint32_t idx[sDIMEN_MAX];
   sp_fdbg_symbol_t *sym = nullptr;
@@ -956,7 +956,7 @@ Debugger::ListWatches(cell_t cip)
     symname = *iter;
     
     sym = nullptr;
-    indexptr = strchr(symname, '[');
+    indexptr = strchr(symname.chars(), '[');
     behindname = nullptr;
     dim = 0;
     memset(idx, 0, sizeof(idx));
@@ -976,17 +976,17 @@ Debugger::ListWatches(cell_t cip)
       *behindname = '\0';
 
     // find the symbol with the smallest scope
-    if (imagev1->GetVariable(symname, cip, (const sp_fdbg_symbol_t **)&sym)) {
+    if (imagev1->GetVariable(symname.chars(), cip, (const sp_fdbg_symbol_t **)&sym)) {
       // Add the [ back again
       if (behindname != nullptr)
         *behindname = '[';
 
-      printf("%d  %-12s ", num++, symname);
+      printf("%d  %-12s ", num++, symname.chars());
       DisplayVariable(sym, idx, dim);
       printf("\n");
     }
     else {
-      printf("%d  %-12s --not in scope--\n", num++, symname);
+      printf("%d  %-12s --not in scope--\n", num++, symname.chars());
     }
   }
 }

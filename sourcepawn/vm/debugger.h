@@ -124,14 +124,14 @@ namespace sp {
     BreakpointMap breakpoint_map_;
     
     struct WatchTablePolicy {
-      typedef const char *Payload;
+      typedef AString Payload;
       
       static uint32_t hash(const char *str) {
         return ke::HashCharSequence(str, strlen(str));
       }
       
-      static bool matches(const char *key, const char *str) {
-        return strcmp(key, str) == 0;
+      static bool matches(const char *key, Payload str) {
+        return str.compare(key) == 0;
       }
     };
     typedef ke::HashTable<WatchTablePolicy> WatchTable;
