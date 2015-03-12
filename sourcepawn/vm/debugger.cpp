@@ -10,6 +10,8 @@
 // You should have received a copy of the GNU General Public License along with
 // SourcePawn. If not, see http://www.gnu.org/licenses/.
 //
+// Based on pawndbg, the Pawn debugger, by ITB CompuPhase.
+//
 #include "debugger.h"
 #include "smx-v1-image.h"
 #include <cctype>
@@ -107,6 +109,9 @@ int InvokeDebugger(PluginContext *ctx)
   FrameIterator iter;
   cell_t cip = iter.findCip();
   
+  debugger->SetBreakCount(debugger->breakcount() + 1);
+  Runmode orig_runmode = debugger->runmode();
+  
   // when running until the function exit, check the frame address
   if (debugger->runmode() == Runmode::STEPOUT &&
       ctx->frm() > debugger->lastframe())
@@ -114,14 +119,14 @@ int InvokeDebugger(PluginContext *ctx)
     debugger->SetRunmode(Runmode::STEPPING);
   }
   
-  int bp = -1;
+  bool isBreakpoint = false;
   // when running, check the breakpoints
   if (debugger->runmode() != Runmode::STEPPING &&
       debugger->runmode() != Runmode::STEPOVER)
   {
     // check breakpoint address
-    bp = debugger->CheckBreakpoint(cip);
-    if (bp < 0)
+    isBreakpoint = debugger->CheckBreakpoint(cip);
+    if (!isBreakpoint)
       return SP_ERROR_NONE;
     
     debugger->SetRunmode(Runmode::STEPPING);
@@ -130,10 +135,15 @@ int InvokeDebugger(PluginContext *ctx)
   // try to avoid halting on the same line twice
   uint32_t line = 0;
   if (ctx->runtime()->LookupLine(cip, &line) == SP_ERROR_NONE) {
-    if (line == debugger->lastline())
+    // assume that there are no more than 5 breaks on a single line.
+    // if there are, halt.
+    if (line == debugger->lastline() && debugger->breakcount() < 5) {
+      debugger->SetRunmode(orig_runmode);
       return SP_ERROR_NONE;
-    debugger->SetLastLine(line);
+    }
   }
+  debugger->SetLastLine(line);
+  debugger->SetBreakCount(0);
   
   // check whether we are stepping through a sub-function
   if (debugger->runmode() == Runmode::STEPOVER) {
@@ -152,7 +162,7 @@ int InvokeDebugger(PluginContext *ctx)
   
   // Echo input back and enable basic control
   unsigned int old_flags = EnableTerminalEcho();
-  debugger->HandleInput(cip, bp, line);
+  debugger->HandleInput(cip, isBreakpoint);
   ResetTerminalEcho(old_flags);
   
   // Enable the watchdog timer again.
@@ -166,25 +176,12 @@ int InvokeDebugger(PluginContext *ctx)
   return SP_ERROR_NONE;
 }
 
-unsigned int Breakpoint::last_number = 1;
-
-Breakpoint::Breakpoint(ucell_t addr, const char *name, bool temporary)
- : addr_(addr),
-   name_(name)
-{
-  // TODO: Find first free number on add to keep them low
-  if (temporary)
-    number_ = 0;
-  else
-    number_ = last_number++;
-}
-
 Debugger::Debugger(PluginContext *context)
  : context_(context),
    runmode_(RUNNING),
    lastfrm_(0),
    lastline_(-1),
-   currentfile_(nullptr),
+   currentfile_(""),
    active_(false)
 {
 }
@@ -228,7 +225,10 @@ Debugger::Deactivate()
 void
 Debugger::ReportError(const IErrorReport& report, FrameIterator& iter)
 {
-  printf("STOP on exception: %s\n", report.Message());
+  if (report.IsFatal())
+    printf("STOP on FATAL exception: %s\n", report.Message());
+  else
+    printf("STOP on exception: %s\n", report.Message());
   
   iter.Reset();
   
@@ -242,9 +242,8 @@ Debugger::ReportError(const IErrorReport& report, FrameIterator& iter)
   cell_t cip = iter.findCip();
   
   uint32_t line = 0;
-  if (context_->runtime()->LookupLine(cip, &line) == SP_ERROR_NONE) {
-    SetLastLine(line);
-  }
+  context_->runtime()->LookupLine(cip, &line);
+  SetLastLine(line);
   
   const char *filename;
   if (context_->runtime()->LookupFile(cip, &filename) == SP_ERROR_NONE) {
@@ -256,7 +255,7 @@ Debugger::ReportError(const IErrorReport& report, FrameIterator& iter)
   
   // Echo input back and enable basic control
   unsigned int old_flags = EnableTerminalEcho();
-  HandleInput(cip, -1, line);
+  HandleInput(cip, false);
   ResetTerminalEcho(old_flags);
   
   // Enable the watchdog timer again.
@@ -302,6 +301,18 @@ void
 Debugger::SetLastLine(uint32_t line)
 {
   lastline_ = line;
+}
+
+uint32_t
+Debugger::breakcount()
+{
+  return breakcount_;
+}
+
+void
+Debugger::SetBreakCount(uint32_t breakcount)
+{
+  breakcount_ = breakcount;
 }
 
 const char *
@@ -443,18 +454,20 @@ Debugger::ListCommands(char *command)
 }
 
 void
-Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
+Debugger::HandleInput(cell_t cip, bool isBp)
 {
   static char lastcommand[32] = "";
   LegacyImage *image = context_->runtime()->image();
   
-  if (bp <= 0)
-    printf("STOP at line %d\n", lineno);
-  else if (bp > 0)
-    printf("BREAK %d at line %d\n", bp, lineno);
+  cip_ = cip;
+  
+  if (!isBp)
+    printf("STOP at line %d in %s\n", lastline_, skippath(currentfile_));
+  else
+    printf("BREAK at line %d in %s\n", lastline_, skippath(currentfile_));
   
   // Print all watched variables now.
-  ListWatches(cip);
+  ListWatches();
   
   char line[512], command[32];
   int result;
@@ -579,10 +592,9 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
         else {
           uint32_t bpline = 0;
           image->LookupLine(bp->addr(), &bpline);
-          printf("Set breakpoint %d in file %s on line %d", bp->number(), skippath(filename), bpline);
+          printf("Set breakpoint %d in file %s on line %d", breakpoint_map_.elements(), skippath(filename), bpline);
           if (bp->name() != nullptr)
             printf(" in function %s", bp->name());
-          printf(" at %x\n", bp->addr());
         }
       }
     }
@@ -616,8 +628,8 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
 
           sym = (sp_fdbg_symbol_t *)reinterpret_cast<const sp_fdbg_symbol_t *>(cursor);
           if (sym->ident != sp::IDENT_FUNCTION &&
-              sym->codestart <= (uint32_t)cip &&
-              sym->codeend >= (uint32_t)cip)
+              sym->codestart <= (uint32_t)cip_ &&
+              sym->codeend >= (uint32_t)cip_)
           {
             printf("%s\t", (sym->vclass & DISP_MASK) > 0 ? "loc" : "glb");
             bool display = true;
@@ -657,7 +669,7 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
           *behindname = '\0';
         
         // find the symbol with the smallest scope
-        if (imagev1->GetVariable(params, cip, (const sp_fdbg_symbol_t **)&sym)) {
+        if (imagev1->GetVariable(params, cip_, (const sp_fdbg_symbol_t **)&sym)) {
           // Add the [ back again
           if (behindname != nullptr)
             *behindname = '[';
@@ -686,7 +698,7 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
       if (varname[0] != '\0') {
         // find the symbol with the given range with the smallest scope
         SmxV1Image *imagev1 = (SmxV1Image *)image;
-        if (imagev1->GetVariable(varname, cip, &sym)) {
+        if (imagev1->GetVariable(varname, cip_, &sym)) {
           SetSymbolValue(sym, index, value);
           if (index > 0)
             printf("%s[%d] set to %d\n", varname, index, value);
@@ -727,7 +739,7 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
         params = skipwhitespace(ptr);
         
         SmxV1Image *imagev1 = (SmxV1Image *)image;
-        if (imagev1->GetVariable(symname, cip, (const sp_fdbg_symbol_t **)&sym)) {
+        if (imagev1->GetVariable(symname, cip_, (const sp_fdbg_symbol_t **)&sym)) {
           assert(sym != nullptr);
           if (!stricmp(params, "std")) {
             sym->vclass = (sym->vclass & DISP_MASK) | DISP_DEFAULT;
@@ -752,7 +764,7 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
           else {
             printf("\tUnknown (or missing) display type\n");
           }
-          ListWatches(cip);
+          ListWatches();
         }
         else {
           printf("\tUnknown symbol \"%s\"\n",symname);
@@ -762,11 +774,11 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
     else if (!stricmp(command, "pos")) {
       printf("\tfile: %s", skippath(currentfile_));
       
-      const char *function = image->LookupFunction(cip);
+      const char *function = image->LookupFunction(cip_);
       if (function != nullptr)
         printf("\tfunction: %s", function);
       
-      printf("\tline: %d\n", lineno);
+      printf("\tline: %d\n", lastline_);
     }
     else if (!stricmp(command, "w") || !stricmp(command, "watch")) {
       if (strlen(params) == 0) {
@@ -774,7 +786,7 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
         continue;
       }
       if (AddWatch(params))
-        ListWatches(cip);
+        ListWatches();
       else
         printf("Invalid watch\n");
     }
@@ -796,7 +808,7 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
         if (!ClearWatch(params))
           printf("Variable not watched\n");
       }
-      ListWatches(cip);
+      ListWatches();
     }
     else {
       printf("\tInvalid command \"%s\", use \"?\" to view all commands\n", command);
@@ -804,23 +816,19 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
   }
 }
 
-int
+bool
 Debugger::CheckBreakpoint(cell_t cip)
 {
-  /* when the "break" statement comes, the instruction pointer is already
-   * incremented; we must adjust for this
-   */
-  //cip -= sizeof(cell_t);
   BreakpointMap::Result result = breakpoint_map_.find(cip);
   if(!result.found())
-    return -1;
+    return false;
   
-  int bp_number = result->value->number();
   // Remove the temporary breakpoint
-  if (bp_number == 0)
-    ClearBreakpoint(bp_number);
+  if (result->value->temporary()) {
+    ClearBreakpoint(result->value);
+  }
   
-  return bp_number;
+  return true;
 }
 
 Breakpoint *
@@ -876,15 +884,29 @@ Debugger::AddBreakpoint(const char* file, const char *function, bool temporary) 
 bool
 Debugger::ClearBreakpoint(int number)
 {
+  if (number <= 0)
+    return false;
   Breakpoint *bp;
+  int i = 0;
   for (BreakpointMap::iterator iter = breakpoint_map_.iter(); !iter.empty(); iter.next()) {
     bp = iter->value;
-    if (bp->number() == number) {
+    if (++i == number) {
       iter.erase();
       return true;
     }
   }
   return false;
+}
+
+bool
+Debugger::ClearBreakpoint(Breakpoint * bp)
+{
+  BreakpointMap::Result res = breakpoint_map_.find(bp->addr());
+  if (!res.found())
+    return false;
+  
+  breakpoint_map_.remove(res);
+  return true;
 }
 
 void
@@ -922,19 +944,22 @@ Debugger::FindBreakpoint(char *breakpoint)
   Breakpoint *bp;
   const char *fname;
   uint32_t line;
+  uint32_t number = 0;
   for (BreakpointMap::iterator iter = breakpoint_map_.iter(); !iter.empty(); iter.next()) {
     bp = iter->value;
     fname = image->LookupFile(bp->addr());
+    number++;
+    
     // Correct file?
     if (fname != nullptr && !strcmp(fname, filename)) {
       // A function breakpoint
       if (bp->name() != nullptr && !strcmp(breakpoint, bp->name()))
-        return bp->number();
+        return number;
       
       // Line breakpoint
       if (image->LookupLine(bp->addr(), &line) &&
           line == strtoul(breakpoint, NULL, 10)-1)
-        return bp->number();
+        return number;
     }
   }
   return -1;
@@ -948,20 +973,21 @@ Debugger::ListBreakpoints()
   Breakpoint *bp;
   uint32_t line;
   const char *filename;
+  uint32_t number = 0;
   for (BreakpointMap::iterator iter = breakpoint_map_.iter(); !iter.empty(); iter.next()) {
     bp = iter->value;
-    printf("%2d  ", bp->number());
+    printf("%2d  ", ++number);
     if (image->LookupLine(bp->addr(), &line)) {
       printf("line: %d", line);
     }
+    
+    filename = image->LookupFile(bp->addr());
+    if (filename != nullptr) {
+      printf("\tfile: %s", skippath(filename));
+    }
+    
     if (bp->name() != nullptr) {
       printf("\tfunc: %s", bp->name());
-    }
-    else {
-      filename = image->LookupFile(bp->addr());
-      if (filename != nullptr) {
-        printf("\tfile: %s", skippath(filename));
-      }
     }
     printf("\n");
   }
@@ -1009,7 +1035,7 @@ Debugger::ClearAllWatches()
 }
 
 void
-Debugger::ListWatches(cell_t cip)
+Debugger::ListWatches()
 {
   SmxV1Image *imagev1 = (SmxV1Image *)context_->runtime()->image();
   uint32_t num = 1;
@@ -1043,7 +1069,7 @@ Debugger::ListWatches(cell_t cip)
       *behindname = '\0';
 
     // find the symbol with the smallest scope
-    if (imagev1->GetVariable(symname.chars(), cip, (const sp_fdbg_symbol_t **)&sym)) {
+    if (imagev1->GetVariable(symname.chars(), cip_, (const sp_fdbg_symbol_t **)&sym)) {
       // Add the [ back again
       if (behindname != nullptr)
         *behindname = '[';
@@ -1053,7 +1079,7 @@ Debugger::ListWatches(cell_t cip)
       printf("\n");
     }
     else {
-      printf("%d  %-12s --not in scope--\n", num++, symname.chars());
+      printf("%d  %-12s (not in scope)\n", num++, symname.chars());
     }
   }
 }
@@ -1078,9 +1104,9 @@ Debugger::GetSymbolValue(const sp_fdbg_symbol_t* sym, int index, cell_t* value)
   if (context_->LocalToPhysAddr(base + index*sizeof(cell_t), &vptr) != SP_ERROR_NONE)
     return false;
   
-  assert(vptr != nullptr);
-  *value = *vptr;
-  return true;
+  if (vptr != nullptr)
+    *value = *vptr;
+  return vptr != nullptr;
 }
 
 bool
@@ -1165,6 +1191,12 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
   SmxV1Image *image = (SmxV1Image *)context_->runtime()->image();
   
   assert(index != NULL);
+  
+  // first check whether the variable is visible at all
+  if ((uint32_t)cip_ < sym->codestart || (uint32_t)cip_ > sym->codeend) {
+    printf("(not in scope)");
+    return;
+  }
   
   // set default display type for the symbol (if none was set)
   if ((sym->vclass & ~DISP_MASK) == 0) {

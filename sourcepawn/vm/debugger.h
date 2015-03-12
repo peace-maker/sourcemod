@@ -30,23 +30,25 @@ namespace sp {
 
   class Breakpoint {
   public:
-    Breakpoint(ucell_t addr, const char *name, bool temporary = false);
+    Breakpoint(ucell_t addr, const char *name, bool temporary = false)
+     : addr_(addr),
+       name_(name),
+       temporary_(temporary)
+    {}
 
-    int number() {
-      return number_;
-    }
     ucell_t addr() {
       return addr_;
     }
     const char *name() {
       return name_;
     }
+    bool temporary() {
+      return temporary_;
+    }
   private:
     ucell_t addr_; /* address (in code or data segment) */
     const char *name_; /* name of the symbol (function) */
-    int number_; /* sequential breakpoint number (to refer to the breakpoint) */
-
-    static unsigned int last_number;
+    bool temporary_; /* delete breakpoint when hit? */
   };
 
   enum Runmode {
@@ -70,8 +72,9 @@ namespace sp {
     Breakpoint *AddBreakpoint(const char *file, unsigned int line, bool temporary);
     Breakpoint *AddBreakpoint(const char *file, const char *function, bool temporary);
     bool ClearBreakpoint(int number);
+    bool ClearBreakpoint(Breakpoint *);
     void ClearAllBreakpoints();
-    int CheckBreakpoint(cell_t cip);
+    bool CheckBreakpoint(cell_t cip);
     int FindBreakpoint(char *breakpoint);
     void ListBreakpoints();
     
@@ -79,7 +82,7 @@ namespace sp {
     bool ClearWatch(const char *symname);
     bool ClearWatch(uint32_t num);
     void ClearAllWatches();
-    void ListWatches(cell_t cip);
+    void ListWatches();
     
     bool GetSymbolValue(const sp_fdbg_symbol_t *sym, int index, cell_t *value);
     bool SetSymbolValue(const sp_fdbg_symbol_t *sym, int index, cell_t value);
@@ -94,11 +97,13 @@ namespace sp {
     void SetLastFrame(cell_t lastfrm);
     uint32_t lastline();
     void SetLastLine(uint32_t line);
+    uint32_t breakcount();
+    void SetBreakCount(uint32_t breakcount);
     const char *currentfile();
     void SetCurrentFile(const char *file);
     
   public:
-    void HandleInput(cell_t cip, int bp, uint32_t line);
+    void HandleInput(cell_t cip, bool isBp);
     void ListCommands(char *command);
     
   private:
@@ -106,8 +111,12 @@ namespace sp {
     Runmode runmode_;
     cell_t lastfrm_;
     uint32_t lastline_;
+    uint32_t breakcount_;
     const char *currentfile_;
     bool active_;
+    
+    // Temporary variables to use inside command loop
+    cell_t cip_;
 
     struct BreakpointMapPolicy {
 
