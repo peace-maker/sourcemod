@@ -19,6 +19,17 @@
 #include "x86/jit_x86.h"
 #include "watchdog_timer.h"
 
+#if defined __GNUC__
+#include <unistd.h>
+#endif
+#if defined __linux__
+#include <termios.h>
+#endif
+#if defined WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 namespace sp {
 
 enum {
@@ -31,6 +42,58 @@ enum {
   DISP_FLOAT   = 0x70,
 };
 #define DISP_MASK 0x0f
+
+// Convince debugging console to act more like an
+// interactive input.
+#if defined __linux__
+tcflag_t GetTerminalLocalMode()
+{
+  struct termios term;
+  tcgetattr(STDIN_FILENO, &term);
+  return term.c_lflag;
+}
+
+void SetTerminalLocalMode(tcflag_t flag)
+{
+  struct termios term;
+  tcgetattr(STDIN_FILENO, &term);
+  term.c_lflag = flag;
+  tcsetattr(STDIN_FILENO, TCSANOW, &term);
+}
+
+tcflag_t EnableTerminalEcho()
+{
+  tcflag_t flags = GetTerminalLocalMode();
+  tcflag_t old_flags = flags;
+  flags |= (ICANON | ECHO | ECHOE | ECHOK | ECHOCTL | IEXTEN);
+  SetTerminalLocalMode(flags);
+  return old_flags;
+}
+
+void ResetTerminalEcho(tcflag_t flag)
+{
+  SetTerminalLocalMode(flag);
+}
+#endif
+
+#if defined WIN32
+DWORD EnableTerminalEcho()
+{
+  DWORD mode, old_mode;
+  HANDLE hConsole = GetStdHandle(STD_INPUT_HANDLE);
+  GetConsoleMode(hConsole, &mode);
+  old_mode = mode;
+  mode |= (ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_EXTENDED_FLAGS | ENABLE_INSERT_MODE);
+  SetConsoleMode(hConsole, mode);
+  return old_mode;
+}
+
+void ResetTerminalEcho(DWORD mode)
+{
+  HANDLE hConsole = GetStdHandle(STD_INPUT_HANDLE);
+  SetConsoleMode(hConsole, mode);
+}
+#endif
 
 int InvokeDebugger(PluginContext *ctx)
 {
@@ -87,7 +150,10 @@ int InvokeDebugger(PluginContext *ctx)
   // Tell the watchdog to take a break.
   Environment::get()->watchdog()->SetIgnore(true);
   
+  // Echo input back and enable basic control
+  unsigned int old_flags = EnableTerminalEcho();
   debugger->HandleInput(cip, bp, line);
+  ResetTerminalEcho(old_flags);
   
   // Enable the watchdog timer again.
   Environment::get()->watchdog()->SetIgnore(false);
@@ -118,7 +184,8 @@ Debugger::Debugger(PluginContext *context)
    runmode_(RUNNING),
    lastfrm_(0),
    lastline_(-1),
-   currentfile_(nullptr)
+   currentfile_(nullptr),
+   active_(false)
 {
 }
 
@@ -187,7 +254,10 @@ Debugger::ReportError(const IErrorReport& report, FrameIterator& iter)
   // Tell the watchdog to take a break.
   Environment::get()->watchdog()->SetIgnore(true);
   
+  // Echo input back and enable basic control
+  unsigned int old_flags = EnableTerminalEcho();
   HandleInput(cip, -1, line);
+  ResetTerminalEcho(old_flags);
   
   // Enable the watchdog timer again.
   Environment::get()->watchdog()->SetIgnore(false);
@@ -406,9 +476,6 @@ Debugger::HandleInput(cell_t cip, int bp, uint32_t lineno)
       ListCommands(nullptr);
       continue;
     }
-    
-    // FIXME: Print back what you typed..
-    printf("%s\n", line);
     
     params = strchr(line, ' ');
     params = (params != nullptr) ? skipwhitespace(params) : (char*)"";
