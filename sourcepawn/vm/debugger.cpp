@@ -383,11 +383,13 @@ Debugger::ListCommands(char *command)
     printf("Options for command \"%s\":\n",command);
   }
   
-  if (!stricmp(command, "break")) {
-    printf("\tBREAK\t\tlist all breakpoints\n"
+  if (!stricmp(command, "break") || !stricmp(command, "tbreak")) {
+    printf("\tUse TBREAK for one-time breakpoints\n\n"
+           "\tBREAK\t\tlist all breakpoints\n"
            "\tBREAK n\t\tset a breakpoint at line \"n\"\n"
            "\tBREAK name:n\tset a breakpoint in file \"name\" at line \"n\"\n"
-           "\tBREAK func\tset a breakpoint at function with name \"func\"\n");
+           "\tBREAK func\tset a breakpoint at function with name \"func\"\n"
+           "\tBREAK .\tset a breakpoint at the current location\n");
   }
   else if (!stricmp(command, "cbreak")) {
     printf("\tCBREAK n\tremove breakpoint number \"n\"\n"
@@ -472,8 +474,15 @@ Debugger::HandleInput(cell_t cip, bool isBp)
   frm_ = context_->frm();
   
   // Count the frames
-  for ( ; !frames.Done(); frames.Next(), frame_count_++) {}
-  // TODO: select first scripted frame, if it's not frame 0
+  // Select first scripted frame, if it's not frame 0
+  bool selected_first_scripted = false;
+  for ( ; !frames.Done(); frames.Next(), frame_count_++) {
+    if (!selected_first_scripted && frames.IsScriptedFrame()) {
+      selected_frame_ = frame_count_;
+      selected_first_scripted = true;
+    }
+  }
+  
   frames.Reset();
   
   if (!isBp)
@@ -585,7 +594,12 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       // Select this frame to operate on.
       frames_->Reset();
       uint32_t index = 0;
+      uint32_t num_scripted_frames = 0;
       for ( ; !frames_->Done(); frames_->Next(), index++) {
+        // Count the scripted frames to find the right frm pointer.
+        if (frames_->IsScriptedFrame())
+          num_scripted_frames++;
+        // Iterator is at the chosen frame now.
         if (index == frame)
           break;
       }
@@ -604,7 +618,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       // Find correct new frame pointer.
       // TODO: make sure all scripted frames are from the same PluginContext
       cell_t frm = context_->frm();
-      for (uint32_t i = 0; i < selected_frame_; i++) {
+      for (uint32_t i = 0; i < num_scripted_frames; i++) {
         frm = *(cell_t *)(context_->memory() + frm + 4);
       }
       frm_ = frm;
@@ -640,6 +654,10 @@ Debugger::HandleInput(cell_t cip, bool isBp)
         // User specified a line number
         if (isdigit(*params)) {
           bp = AddBreakpoint(filename, strtol(params, NULL, 10)-1, !stricmp(command, "tbreak"));
+        }
+        // User wants to add a breakpoint at the current location
+        else if (*params == '.') {
+          bp = AddBreakpoint(filename, lastline_, !stricmp(command, "tbreak"));
         }
         // User specified a function name
         else {
