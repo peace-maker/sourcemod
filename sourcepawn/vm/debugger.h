@@ -24,7 +24,6 @@ namespace sp {
   using namespace SourcePawn;
 
   int InvokeDebugger(PluginContext *ctx);
-  static void DumpStack(IFrameIterator &iter);
   
   static const uint32_t MAXLINELENGTH = 128;
 
@@ -89,6 +88,7 @@ namespace sp {
     char *GetString(sp_fdbg_symbol_t *sym);
     void PrintValue(long value, int disptype);
     void DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel);
+    void DumpStack();
     
   public:
     Runmode runmode();
@@ -117,6 +117,10 @@ namespace sp {
     
     // Temporary variables to use inside command loop
     cell_t cip_;
+    cell_t frm_;
+    FrameIterator *frames_;
+    uint32_t frame_count_;
+    uint32_t selected_frame_;
 
     struct BreakpointMapPolicy {
 

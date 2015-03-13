@@ -405,6 +405,10 @@ Debugger::ListCommands(char *command)
            "\tDISP var\tdisplay the value of variable \"var\"\n"
            "\tDISP var[i]\tdisplay the value of array element \"var[i]\"\n");
   }
+  else if (!stricmp(command, "f") || !stricmp(command, "frame")) {
+    printf("\tFRAME may be abbreviated to F\n\n");
+    printf("\tFRAME n\tselect frame n and show/change local variables in that function\n");
+  }
   else if (!stricmp(command, "g") || !stricmp(command, "go")) {
     printf("\tGO may be abbreviated to G\n\n"
            "\tGO\t\trun until the next breakpoint or program termination\n"
@@ -440,6 +444,7 @@ Debugger::ListCommands(char *command)
            "\tCW(atch)\tremove a \"watchpoint\"\n"
            "\tD(isp)\t\tdisplay the value of a variable, list variables\n"
            "\tFILES\t\tlist all files that this program is composed off\n"
+           "\tF(rame)\t\tSelect a frame from the back trace to operate on\n"
            "\tFUNCS\t\tdisplay functions\n"
            "\tG(o)\t\trun program (until breakpoint)\n"
            "\tN(ext)\t\tRun until next line, step over functions\n"
@@ -459,7 +464,17 @@ Debugger::HandleInput(cell_t cip, bool isBp)
   static char lastcommand[32] = "";
   LegacyImage *image = context_->runtime()->image();
   
+  FrameIterator frames;
+  frames_ = &frames;
+  frame_count_ = 0;
+  selected_frame_ = 0;
   cip_ = cip;
+  frm_ = context_->frm();
+  
+  // Count the frames
+  for ( ; !frames.Done(); frames.Next(), frame_count_++) {}
+  // TODO: select first scripted frame, if it's not frame 0
+  frames.Reset();
   
   if (!isBp)
     printf("STOP at line %d in %s\n", lastline_, skippath(currentfile_));
@@ -548,8 +563,53 @@ Debugger::HandleInput(cell_t cip, bool isBp)
     }
     else if (!stricmp(command, "bt") || !stricmp(command, "backtrace")) {
       printf("Stack trace:\n");
-      FrameIterator frames;
-      DumpStack(frames);
+      DumpStack();
+    }
+    else if (!stricmp(command, "f") || !stricmp(command, "frame")) {
+      if (*params == '\0' || !isdigit(*params)) {
+        puts("Invalid syntax. Type \"? frame\" for help.\n");
+        continue;
+      }
+      
+      uint32_t frame = atoi(params);
+      if (atoi < 0 || frame_count_ <= frame) {
+        printf("Invalid frame. There are only %d frames on the stack.\n", frame_count_);
+        continue;
+      }
+      
+      if (frame == selected_frame_) {
+        puts("This frame is already selected.\n");
+        continue;
+      }
+      
+      // Select this frame to operate on.
+      frames_->Reset();
+      uint32_t index = 0;
+      for ( ; !frames_->Done(); frames_->Next(), index++) {
+        if (index == frame)
+          break;
+      }
+      
+      if (!frames_->IsScriptedFrame()) {
+        printf("%d is not a scripted frame.\n", frame);
+        continue;
+      }
+      
+      // Update internal state for this frame.
+      selected_frame_ = frame;
+      cip_ = frames_->findCip();
+      currentfile_ = image->LookupFile(cip_);
+      image->LookupLine(cip_, &lastline_);
+      
+      // Find correct new frame pointer.
+      // TODO: make sure all scripted frames are from the same PluginContext
+      cell_t frm = context_->frm();
+      for (uint32_t i = 0; i < selected_frame_; i++) {
+        frm = *(cell_t *)(context_->memory() + frm + 4);
+      }
+      frm_ = frm;
+      
+      printf("Selected frame %d.\n", frame);
     }
     else if (!stricmp(command, "break") || !stricmp(command, "tbreak")) {
       if (*params == '\0') {
@@ -778,7 +838,12 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       if (function != nullptr)
         printf("\tfunction: %s", function);
       
-      printf("\tline: %d\n", lastline_);
+      printf("\tline: %d", lastline_);
+      
+      if (selected_frame_ > 0)
+        printf("\tframe: %d", selected_frame_);
+      
+      puts("\n");
     }
     else if (!stricmp(command, "w") || !stricmp(command, "watch")) {
       if (strlen(params) == 0) {
@@ -886,10 +951,9 @@ Debugger::ClearBreakpoint(int number)
 {
   if (number <= 0)
     return false;
-  Breakpoint *bp;
+  
   int i = 0;
   for (BreakpointMap::iterator iter = breakpoint_map_.iter(); !iter.empty(); iter.next()) {
-    bp = iter->value;
     if (++i == number) {
       iter.erase();
       return true;
@@ -976,10 +1040,14 @@ Debugger::ListBreakpoints()
   uint32_t number = 0;
   for (BreakpointMap::iterator iter = breakpoint_map_.iter(); !iter.empty(); iter.next()) {
     bp = iter->value;
+    
     printf("%2d  ", ++number);
     if (image->LookupLine(bp->addr(), &line)) {
       printf("line: %d", line);
     }
+    
+    if (bp->temporary())
+      printf("  (TEMP)");
     
     filename = image->LookupFile(bp->addr());
     if (filename != nullptr) {
@@ -1090,7 +1158,7 @@ Debugger::GetSymbolValue(const sp_fdbg_symbol_t* sym, int index, cell_t* value)
   cell_t *vptr;
   cell_t base = sym->addr;
   if (sym->vclass & DISP_MASK)
-    base += context_->frm(); // addresses of local vars are relative to the frame
+    base += frm_; // addresses of local vars are relative to the frame
   
   // a reference
   if (sym->ident == sp::IDENT_REFERENCE || sym->ident == sp::IDENT_REFARRAY) {
@@ -1115,7 +1183,7 @@ Debugger::SetSymbolValue(const sp_fdbg_symbol_t* sym, int index, cell_t value)
   cell_t *vptr;
   cell_t base = sym->addr;
   if (sym->vclass & DISP_MASK)
-    base += context_->frm(); // addresses of local vars are relative to the frame
+    base += frm_; // addresses of local vars are relative to the frame
   
   // a reference
   if (sym->ident == sp::IDENT_REFERENCE || sym->ident == sp::IDENT_REFARRAY) {
@@ -1139,7 +1207,7 @@ Debugger::GetString(sp_fdbg_symbol_t* sym) {
   cell_t *addr;
   cell_t base = sym->addr;
   if (sym->vclass)
-    base += context_->frm(); // addresses of local vars are relative to the frame
+    base += frm_; // addresses of local vars are relative to the frame
   if (sym->ident == sp::IDENT_REFARRAY) {
     context_->LocalToPhysAddr(base, &addr);
     assert(addr != nullptr);
@@ -1311,13 +1379,24 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
 }
 
 void
-DumpStack(IFrameIterator &iter)
+Debugger::DumpStack()
 {
-  int index = 0;
+  FrameIterator &iter = *frames_;
+  
+  iter.Reset();
+  
+  uint32_t index = 0;
   for (; !iter.Done(); iter.Next(), index++) {
+    if (index == selected_frame_) {
+      fputs("->", stdout);
+    }
+    else {
+      fputs("  ", stdout);
+    }
+    
     const char *name = iter.FunctionName();
     if (!name) {
-      fprintf(stdout, "  [%d] <unknown>\n", index);
+      fprintf(stdout, "[%d] <unknown>\n", index);
       continue;
     }
 
@@ -1325,9 +1404,9 @@ DumpStack(IFrameIterator &iter)
       const char *file = iter.FilePath();
       if (!file)
         file = "<unknown>";
-      fprintf(stdout, "  [%d] %s::%s, line %d\n", index, file, name, iter.LineNumber());
+      fprintf(stdout, "[%d] %s::%s, line %d\n", index, file, name, iter.LineNumber());
     } else {
-      fprintf(stdout, "  [%d] %s()\n", index, name);
+      fprintf(stdout, "[%d] %s()\n", index, name);
     }
   }
 }
