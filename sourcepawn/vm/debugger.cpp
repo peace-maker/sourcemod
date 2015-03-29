@@ -472,6 +472,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
   selected_frame_ = 0;
   cip_ = cip;
   frm_ = context_->frm();
+  selected_context_ = context_;
   
   // Count the frames
   // Select first scripted frame, if it's not frame 0
@@ -581,7 +582,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       }
       
       uint32_t frame = atoi(params);
-      if (atoi < 0 || frame_count_ <= frame) {
+      if (frame < 0 || frame_count_ <= frame) {
         printf("Invalid frame. There are only %d frames on the stack.\n", frame_count_);
         continue;
       }
@@ -594,11 +595,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       // Select this frame to operate on.
       frames_->Reset();
       uint32_t index = 0;
-      uint32_t num_scripted_frames = 0;
       for ( ; !frames_->Done(); frames_->Next(), index++) {
-        // Count the scripted frames to find the right frm pointer.
-        if (frames_->IsScriptedFrame())
-          num_scripted_frames++;
         // Iterator is at the chosen frame now.
         if (index == frame)
           break;
@@ -607,6 +604,23 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       if (!frames_->IsScriptedFrame()) {
         printf("%d is not a scripted frame.\n", frame);
         continue;
+      }
+
+      // Get the plugin context of the target frame
+      selected_context_ = (PluginContext *)frames_->Context();
+      image = selected_context_->runtime()->image();
+
+      // Reset the frame iterator again and count all above frames in the context.
+      frames_->Reset();
+      index = 0;
+      uint32_t num_scripted_frames = 0;
+      for (; !frames_->Done(); frames_->Next(), index++) {
+        // Count the scripted frames in the context to find the right frm pointer.
+        if (frames_->IsScriptedFrame() && frames_->Context() == selected_context_)
+          num_scripted_frames++;
+        // We've reached the chosen frame.
+        if (index == frame)
+          break;
       }
       
       // Update internal state for this frame.
@@ -617,9 +631,9 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       
       // Find correct new frame pointer.
       // TODO: make sure all scripted frames are from the same PluginContext
-      cell_t frm = context_->frm();
-      for (uint32_t i = 0; i < num_scripted_frames; i++) {
-        frm = *(cell_t *)(context_->memory() + frm + 4);
+      cell_t frm = selected_context_->frm();
+      for (uint32_t i = 1; i < num_scripted_frames; i++) {
+        frm = *(cell_t *)(selected_context_->memory() + frm + 4);
       }
       frm_ = frm;
       
@@ -1123,7 +1137,7 @@ Debugger::ClearAllWatches()
 void
 Debugger::ListWatches()
 {
-  SmxV1Image *imagev1 = (SmxV1Image *)context_->runtime()->image();
+  SmxV1Image *imagev1 = (SmxV1Image *)selected_context_->runtime()->image();
   uint32_t num = 1;
   AString symname;
   int dim;
@@ -1180,14 +1194,14 @@ Debugger::GetSymbolValue(const sp_fdbg_symbol_t* sym, int index, cell_t* value)
   
   // a reference
   if (sym->ident == sp::IDENT_REFERENCE || sym->ident == sp::IDENT_REFARRAY) {
-    if (context_->LocalToPhysAddr(base, &vptr) != SP_ERROR_NONE)
+    if (selected_context_->LocalToPhysAddr(base, &vptr) != SP_ERROR_NONE)
       return false;
     
     assert(vptr != nullptr);
     base = *vptr;
   }
   
-  if (context_->LocalToPhysAddr(base + index*sizeof(cell_t), &vptr) != SP_ERROR_NONE)
+  if (selected_context_->LocalToPhysAddr(base + index*sizeof(cell_t), &vptr) != SP_ERROR_NONE)
     return false;
   
   if (vptr != nullptr)
@@ -1205,12 +1219,12 @@ Debugger::SetSymbolValue(const sp_fdbg_symbol_t* sym, int index, cell_t value)
   
   // a reference
   if (sym->ident == sp::IDENT_REFERENCE || sym->ident == sp::IDENT_REFARRAY) {
-    context_->LocalToPhysAddr(base, &vptr);
+    selected_context_->LocalToPhysAddr(base, &vptr);
     assert(vptr != nullptr);
     base = *vptr;
   }
   
-  context_->LocalToPhysAddr(base + index*sizeof(cell_t), &vptr);
+  selected_context_->LocalToPhysAddr(base + index*sizeof(cell_t), &vptr);
   assert(vptr != nullptr);
   *vptr = value;
   return true;
@@ -1227,13 +1241,13 @@ Debugger::GetString(sp_fdbg_symbol_t* sym) {
   if (sym->vclass)
     base += frm_; // addresses of local vars are relative to the frame
   if (sym->ident == sp::IDENT_REFARRAY) {
-    context_->LocalToPhysAddr(base, &addr);
+    selected_context_->LocalToPhysAddr(base, &addr);
     assert(addr != nullptr);
     base = *addr;
   }
   
   char *str;
-  if (context_->LocalToStringNULL(base, &str) != SP_ERROR_NONE)
+  if (selected_context_->LocalToStringNULL(base, &str) != SP_ERROR_NONE)
     return nullptr;
   return str;
 }
@@ -1274,7 +1288,7 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
 {
   const sp_fdbg_arraydim_t *symdim = nullptr;
   cell_t value;
-  SmxV1Image *image = (SmxV1Image *)context_->runtime()->image();
+  SmxV1Image *image = (SmxV1Image *)selected_context_->runtime()->image();
   
   assert(index != NULL);
   

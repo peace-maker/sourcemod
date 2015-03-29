@@ -121,6 +121,7 @@ namespace sp {
     FrameIterator *frames_;
     uint32_t frame_count_;
     uint32_t selected_frame_;
+    PluginContext *selected_context_;
 
     struct BreakpointMapPolicy {
 
