@@ -523,7 +523,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       ListCommands(result ? command : nullptr);
     }
     else if (!stricmp(command, "quit")) {
-      printf("Clearing all breakpoints. Running normally.\n");
+      fputs("Clearing all breakpoints. Running normally.\n", stdout);
       Deactivate();
       return;
     }
@@ -546,7 +546,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       return;
     }
     else if (!stricmp(command, "funcs")) {
-      printf("Listing functions:\n");
+      fputs("Listing functions:\n", stdout);
       SmxV1Image *imagev1 = (SmxV1Image *)image;
       const uint8_t *cursor = reinterpret_cast<const uint8_t *>(imagev1->debug_syms_);
       const uint8_t *cursor_end = cursor + imagev1->debug_symbols_section_->size;
@@ -563,7 +563,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
           if (filename != nullptr) {
             printf("\t(%s)",skippath(filename));
           }
-          printf("\n");
+          fputs("\n", stdout);
         }
 
         if (sym->dimcount > 0)
@@ -577,7 +577,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
     }
     else if (!stricmp(command, "f") || !stricmp(command, "frame")) {
       if (*params == '\0' || !isdigit(*params)) {
-        puts("Invalid syntax. Type \"? frame\" for help.\n");
+        fputs("Invalid syntax. Type \"? frame\" for help.\n", stdout);
         continue;
       }
       
@@ -588,7 +588,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       }
       
       if (frame == selected_frame_) {
-        puts("This frame is already selected.\n");
+        fputs("This frame is already selected.\n", stdout);
         continue;
       }
       
@@ -654,7 +654,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
           *sep = '\0';
           filename = image->FindFileByPartialName(params);
           if (filename == nullptr) {
-            printf("Invalid filename.\n");
+            fputs("Invalid filename.\n", stdout);
             continue;
           }
           
@@ -679,7 +679,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
         }
         
         if (bp == nullptr) {
-          printf("Invalid breakpoint\n");
+          fputs("Invalid breakpoint\n", stdout);
         }
         else {
           uint32_t bpline = 0;
@@ -687,6 +687,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
           printf("Set breakpoint %d in file %s on line %d", breakpoint_map_.elements(), skippath(filename), bpline);
           if (bp->name() != nullptr)
             printf(" in function %s", bp->name());
+          fputs("\n", stdout);
         }
       }
     }
@@ -698,7 +699,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       else {
         int number = FindBreakpoint(params);
         if (number < 0 || !ClearBreakpoint(number))
-          printf("\tUnknown breakpoint (or wrong syntax)\n");
+          fputs("\tUnknown breakpoint (or wrong syntax)\n", stdout);
         else
           printf("\tCleared breakpoint %d\n", number);
       }
@@ -731,7 +732,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
             
             if (display)
               DisplayVariable(sym, idx, 0);
-            printf("\n");
+            fputs("\n", stdout);
           }
 
           if (sym->dimcount > 0)
@@ -768,10 +769,10 @@ Debugger::HandleInput(cell_t cip, bool isBp)
           
           printf("%s\t%s\t", (sym->vclass & DISP_MASK) > 0 ? "loc" : "glb", params);
           DisplayVariable(sym, idx, dim);
-          printf("\n");
+          fputs("\n", stdout);
         }
         else {
-          printf("\tSymbol not found, or not a variable\n");
+          fputs("\tSymbol not found, or not a variable\n", stdout);
         }
       }
     }
@@ -798,15 +799,15 @@ Debugger::HandleInput(cell_t cip, bool isBp)
             printf("%s set to %d\n", varname, value);
         }
         else {
-          printf("Symbol not found or not a variable\n");
+          fputs("Symbol not found or not a variable\n", stdout);
         }
       }
       else {
-        printf("Invalid syntax for \"set\". Type \"? set\".\n");
+        fputs("Invalid syntax for \"set\". Type \"? set\".\n", stdout);
       }
     }
     else if (!stricmp(command, "files")) {
-      printf("Source files:\n");
+      fputs("Source files:\n", stdout);
       // browse through the file table
       SmxV1Image *imagev1 = (SmxV1Image *)image;
       for (unsigned int i = 0; i < imagev1->debug_info_->num_files; i++) {
@@ -822,7 +823,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
         /* nothing */;
       int len = (int)(ptr-params);
       if (len == 0 || len > 31) {
-        printf("\tInvalid (or missing) symbol name\n");
+        fputs("\tInvalid (or missing) symbol name\n", stdout);
       }
       else {
         sp_fdbg_symbol_t *sym;
@@ -840,7 +841,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
             // check array with single dimension
             if (!(sym->ident == sp::IDENT_ARRAY || sym->ident == sp::IDENT_REFARRAY) ||
                 sym->dimcount != 1)
-              printf("\t\"string\" display type is only valid for arrays with one dimension\n");
+              fputs("\t\"string\" display type is only valid for arrays with one dimension\n", stdout);
             else
               sym->vclass = (sym->vclass & DISP_MASK) | DISP_STRING;
           }
@@ -854,7 +855,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
             sym->vclass = (sym->vclass & DISP_MASK) | DISP_FLOAT;
           }
           else {
-            printf("\tUnknown (or missing) display type\n");
+            fputs("\tUnknown (or missing) display type\n", stdout);
           }
           ListWatches();
         }
@@ -875,21 +876,21 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       if (selected_frame_ > 0)
         printf("\tframe: %d", selected_frame_);
       
-      puts("\n");
+      fputs("\n", stdout);
     }
     else if (!stricmp(command, "w") || !stricmp(command, "watch")) {
       if (strlen(params) == 0) {
-        printf("Missing variable name\n");
+        fputs("Missing variable name\n", stdout);
         continue;
       }
       if (AddWatch(params))
         ListWatches();
       else
-        printf("Invalid watch\n");
+        fputs("Invalid watch\n", stdout);
     }
     else if (!stricmp(command, "cw") || !stricmp(command, "cwatch")) {
       if (strlen(params) == 0) {
-        printf("Missing variable name\n");
+        fputs("Missing variable name\n", stdout);
         continue;
       }
       
@@ -899,11 +900,11 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       else if (isdigit(*params)) {
         // Delete watch by index
         if (!ClearWatch(atoi(params)))
-          printf("Bad watch number\n");
+          fputs("Bad watch number\n", stdout);
       }
       else {
         if (!ClearWatch(params))
-          printf("Variable not watched\n");
+          fputs("Variable not watched\n", stdout);
       }
       ListWatches();
     }
@@ -1267,10 +1268,10 @@ Debugger::PrintValue(long value, int disptype)
       switch(value)
       {
         case 0:
-          printf("false");
+          fputs("false", stdout);
           break;
         case 1:
-          printf("true");
+          fputs("true", stdout);
           break;
         default:
           printf("%ld (false)", value);
@@ -1294,7 +1295,7 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
   
   // first check whether the variable is visible at all
   if ((uint32_t)cip_ < sym->codestart || (uint32_t)cip_ > sym->codeend) {
-    printf("(not in scope)");
+    fputs("(not in scope)", stdout);
     return;
   }
   
@@ -1343,7 +1344,7 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
         break;
     }
     if (dim < idxlevel) {
-      printf("(index out of range)");
+      fputs("(index out of range)", stdout);
       return;
     }
   }
@@ -1356,7 +1357,7 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
       if (str != nullptr)
         printf("\"%s\"", str); // TODO: truncate to 40 chars
       else
-        printf("NULL_STRING");
+        fputs("NULL_STRING", stdout);
     }
     else if (sym->dimcount == 1) {
       assert(symdim != nullptr); // set in the previous block
@@ -1366,27 +1367,27 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
       else if(len == 0)
         len = 1; // unknown array length, assume at least 1 element
 
-      printf("{");
+      fputs("{", stdout);
       uint32_t i;
       for (i = 0; i < len; i++) {
         if (i > 0)
-          printf(",");
+          fputs(",", stdout);
         if (GetSymbolValue(sym, i, &value))
           PrintValue(value, (sym->vclass & ~DISP_MASK));
         else
-          printf("?");
+          fputs("?", stdout);
       }
       if (len < symdim[0].size || symdim[0].size == 0)
-        printf(",...");
-      printf("}");
+        fputs(",...", stdout);
+      fputs("}", stdout);
     }
     else {
-      printf("(multi-dimensional array)");
+      fputs("(multi-dimensional array)", stdout);
     }
   }
   else if (sym->ident != sp::IDENT_ARRAY && sym->ident != sp::IDENT_REFARRAY && idxlevel > 0) {
     // index used on a non-array
-    printf("(invalid index, not an array)");
+    fputs("(invalid index, not an array)", stdout);
   }
   else {
     // simple variable, or indexed array element
@@ -1404,9 +1405,9 @@ Debugger::DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel)
         sym->dimcount == idxlevel)
       PrintValue(value, (sym->vclass & ~DISP_MASK));
     else if (sym->dimcount != idxlevel)
-      printf("(invalid number of dimensions)");
+      fputs("(invalid number of dimensions)", stdout);
     else
-      printf("?");
+      fputs("?", stdout);
   }
 }
 
