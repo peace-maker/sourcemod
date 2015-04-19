@@ -420,7 +420,8 @@ Debugger::ListCommands(char *command)
   }
   else if (!stricmp(command, "set")) {
     printf("\tSET var=value\t\tset variable \"var\" to the numeric value \"value\"\n"
-           "\tSET var[i]=value\tset array item \"var\" to a numeric value\n");
+           "\tSET var[i]=value\tset array item \"var\" to a numeric value\n"
+           "\tSET var=\"value\"\tset string variable \"var\" to string \"value\"\n");
   }
   else if (!stricmp(command, "type")) {
     printf("\tTYPE var STRING\tdisplay \"var\" as string\n"
@@ -630,7 +631,6 @@ Debugger::HandleInput(cell_t cip, bool isBp)
       image->LookupLine(cip_, &lastline_);
       
       // Find correct new frame pointer.
-      // TODO: make sure all scripted frames are from the same PluginContext
       cell_t frm = selected_context_->frm();
       for (uint32_t i = 1; i < num_scripted_frames; i++) {
         frm = *(cell_t *)(selected_context_->memory() + frm + 4);
@@ -778,13 +778,18 @@ Debugger::HandleInput(cell_t cip, bool isBp)
     }
     else if (!stricmp(command, "set")) {
       char varname[32];
+      char strvalue[1024];
       uint32_t index;
       cell_t value;
       const sp_fdbg_symbol_t *sym = nullptr;
+      strvalue[0] = '\0';
       if (sscanf(params, " %[^[ ][%d] = %d", varname, &index, &value) != 3) {
         index = 0;
         if (sscanf(params, " %[^= ] = %d", varname, &value) != 2) {
           varname[0] = '\0';
+          if (sscanf(params, " %[^= ] = \"%[^\"]\"", varname, strvalue) != 2) {
+            strvalue[0] = '\0';
+          }
         }
       }
       
@@ -792,11 +797,26 @@ Debugger::HandleInput(cell_t cip, bool isBp)
         // find the symbol with the given range with the smallest scope
         SmxV1Image *imagev1 = (SmxV1Image *)image;
         if (imagev1->GetVariable(varname, cip_, &sym)) {
-          SetSymbolValue(sym, index, value);
-          if (index > 0)
-            printf("%s[%d] set to %d\n", varname, index, value);
-          else
-            printf("%s set to %d\n", varname, value);
+          // user gave an integer as value
+          if (strvalue[0] == '\0') {
+            SetSymbolValue(sym, index, value);
+            if (index > 0)
+              printf("%s[%d] set to %d\n", varname, index, value);
+            else
+              printf("%s set to %d\n", varname, value);
+          }
+          // we have a string as value
+          else {
+            if ((sym->ident != sp::IDENT_ARRAY 
+             && sym->ident != sp::IDENT_REFARRAY)
+             || sym->dimcount != 1) {
+              printf("%s is not a string.\n", varname);
+            }
+            else {
+              SetSymbolString(sym, strvalue);
+              printf("%s set to \"%s\"\n", varname, strvalue);
+            }
+          }
         }
         else {
           fputs("Symbol not found or not a variable\n", stdout);
@@ -1229,6 +1249,31 @@ Debugger::SetSymbolValue(const sp_fdbg_symbol_t* sym, int index, cell_t value)
   assert(vptr != nullptr);
   *vptr = value;
   return true;
+}
+
+bool
+Debugger::SetSymbolString(const sp_fdbg_symbol_t* sym, char* str)
+{
+  assert(sym->ident == sp::IDENT_ARRAY || sym->ident == sp::IDENT_REFARRAY);
+  assert(sym->dimcount == 1);
+  
+  SmxV1Image *image = (SmxV1Image *)selected_context_->runtime()->image();
+  
+  cell_t *vptr;
+  cell_t base = sym->addr;
+  if (sym->vclass & DISP_MASK)
+    base += frm_; // addresses of local vars are relative to the frame
+  
+  // a reference
+  if (sym->ident == sp::IDENT_REFERENCE || sym->ident == sp::IDENT_REFARRAY) {
+    selected_context_->LocalToPhysAddr(base, &vptr);
+    assert(vptr != nullptr);
+    base = *vptr;
+  }
+  
+  const sp_fdbg_arraydim_t* dim;
+  image->GetArrayDim(sym, &dim);
+  return selected_context_->StringToLocalUTF8(base, dim->size, str, NULL) == SP_ERROR_NONE;
 }
 
 char *

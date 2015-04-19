@@ -85,6 +85,7 @@ namespace sp {
     
     bool GetSymbolValue(const sp_fdbg_symbol_t *sym, int index, cell_t *value);
     bool SetSymbolValue(const sp_fdbg_symbol_t *sym, int index, cell_t value);
+    bool SetSymbolString(const sp_fdbg_symbol_t* sym, char* str);
     char *GetString(sp_fdbg_symbol_t *sym);
     void PrintValue(long value, int disptype);
     void DisplayVariable(sp_fdbg_symbol_t *sym, uint32_t index[], int idxlevel);
