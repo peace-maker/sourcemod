@@ -117,6 +117,9 @@ class Compiler
   ExternalAddress frmAddr() {
     return ExternalAddress(context_->addressOfFrm());
   }
+  ExternalAddress spAddr() {
+    return ExternalAddress(context_->addressOfSp());
+  }
 
   // Map a return address (i.e. an exit point from a function) to its source
   // cip. This lets us avoid tracking the cip during runtime. These are

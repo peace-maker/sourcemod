@@ -1841,6 +1841,12 @@ Compiler::emitThrowPathIfNeeded(int err)
 void 
 Compiler::emitDebugBreakHandler()
 {
+  // Get and store the current stack pointer.
+  __ movl(tmp, stk);
+  __ movl(frm, stk);
+  __ subl(tmp, dat);
+  __ movl(Operand(spAddr()), tmp);
+  
   // Common path for invoking debugger.
   __ bind(&debug_break_);
   __ movl(ecx, intptr_t(&Environment::get()->exit_frame()));

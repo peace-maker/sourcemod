@@ -389,7 +389,7 @@ Debugger::ListCommands(char *command)
            "\tBREAK n\t\tset a breakpoint at line \"n\"\n"
            "\tBREAK name:n\tset a breakpoint in file \"name\" at line \"n\"\n"
            "\tBREAK func\tset a breakpoint at function with name \"func\"\n"
-           "\tBREAK .\tset a breakpoint at the current location\n");
+           "\tBREAK .\t\tset a breakpoint at the current location\n");
   }
   else if (!stricmp(command, "cbreak")) {
     printf("\tCBREAK n\tremove breakpoint number \"n\"\n"
@@ -421,17 +421,31 @@ Debugger::ListCommands(char *command)
   else if (!stricmp(command, "set")) {
     printf("\tSET var=value\t\tset variable \"var\" to the numeric value \"value\"\n"
            "\tSET var[i]=value\tset array item \"var\" to a numeric value\n"
-           "\tSET var=\"value\"\tset string variable \"var\" to string \"value\"\n");
+           "\tSET var=\"value\"\t\tset string variable \"var\" to string \"value\"\n");
   }
   else if (!stricmp(command, "type")) {
-    printf("\tTYPE var STRING\tdisplay \"var\" as string\n"
-           "\tTYPE var STD\tset default display format (decimal integer)\n"
-           "\tTYPE var HEX\tset hexadecimal integer format\n"
-           "\tTYPE var FLOAT\tset floating point format\n");
+    printf("\tTYPE var STRING\t\tdisplay \"var\" as string\n"
+           "\tTYPE var STD\t\tset default display format (decimal integer)\n"
+           "\tTYPE var HEX\t\tset hexadecimal integer format\n"
+           "\tTYPE var FLOAT\t\tset floating point format\n");
   }
   else if (!stricmp(command, "watch") || !stricmp(command, "w")) {
     printf("\tWATCH may be abbreviated to W\n\n"
            "\tWATCH var\tset a new watch at variable \"var\"\n");
+  }
+  else if (!stricmp(command, "x")) {
+    printf("\tX/FMT ADDRESS\texamine plugin memory at \"ADDRESS\"\n"
+           "\tADDRESS is an expression for the memory address to examine.\n"
+           "\tFMT is a repeat count followed by a format letter and a size letter.\n"
+           "\t\tFormat letters are o(octal), x(hex), d(decimal), u(unsigned decimal),\n"
+           "\t\t\tf(float), c(char) and s(string).\n"
+           "\t\tSize letters are b(byte), h(halfword), w(word).\n\n"
+           "\t\tThe specified number of objects of the specified size are printed\n"
+           "\t\taccording to the format.\n\n"
+           //"\tDefaults for format and size letters are those previously used.\n"
+           //"\tDefault count is 1.  Default address is following last thing printed\n"
+           //"\twith this command or \"disp\".\n"
+            );
   }
   else if (!stricmp(command, "n") || !stricmp(command, "next") ||
            !stricmp(command, "quit") || !stricmp(command, "pos") ||
@@ -457,6 +471,7 @@ Debugger::ListCommands(char *command)
            "\tS(tep)\t\tsingle step, step into functions\n"
            "\tTYPE\t\tset the \"display type\" of a symbol\n"
            "\tW(atch)\t\tset a \"watchpoint\" on a variable\n"
+           "\tX\t\texamine plugin memory: x/FMT ADDRESS\n"
            "\n\tUse \"? <command name>\" to view more information on a command\n");
   }
 }
@@ -724,14 +739,12 @@ Debugger::HandleInput(cell_t cip, bool isBp)
               sym->codestart <= (uint32_t)cip_ &&
               sym->codeend >= (uint32_t)cip_)
           {
-            printf("%s\t", (sym->vclass & DISP_MASK) > 0 ? "loc" : "glb");
-            bool display = true;
+            printf("%s\t<%#8x>\t", (sym->vclass & DISP_MASK) > 0 ? "loc" : "glb", (sym->vclass & DISP_MASK) > 0 ? frm_ + sym->addr : sym->addr);
             if(sym->name < imagev1->debug_names_section_->size) {
               printf("%s\t", imagev1->debug_names_ + sym->name);
             }
             
-            if (display)
-              DisplayVariable(sym, idx, 0);
+            DisplayVariable(sym, idx, 0);
             fputs("\n", stdout);
           }
 
@@ -767,7 +780,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
           if (behindname != nullptr)
             *behindname = '[';
           
-          printf("%s\t%s\t", (sym->vclass & DISP_MASK) > 0 ? "loc" : "glb", params);
+          printf("%s\t<%#8x>\t%s\t", (sym->vclass & DISP_MASK) > 0 ? "loc" : "glb", (sym->vclass & DISP_MASK) > 0 ? frm_ + sym->addr : sym->addr, params);
           DisplayVariable(sym, idx, dim);
           fputs("\n", stdout);
         }
@@ -871,7 +884,7 @@ Debugger::HandleInput(cell_t cip, bool isBp)
           else if (!stricmp(params, "hex")) {
             sym->vclass = (sym->vclass & DISP_MASK) | DISP_HEX;
           }
-          else if (!stricmp(params,"float")) {
+          else if (!stricmp(params, "float")) {
             sym->vclass = (sym->vclass & DISP_MASK) | DISP_FLOAT;
           }
           else {
@@ -927,6 +940,191 @@ Debugger::HandleInput(cell_t cip, bool isBp)
           fputs("Variable not watched\n", stdout);
       }
       ListWatches();
+    }
+    else if (command[0] == 'x' || command[0] == 'X') {
+      char* fmt = command+1;
+      
+      if (strlen(params) == 0) {
+        fputs("Missing address.\n", stdout);
+        continue;
+      }
+      
+      // Format is x/[count][format][size] <address>
+      if (*fmt != '/') {
+        fputs("Bad format specifier.\n", stdout);
+        continue;
+      }
+      fmt++;
+      
+      char* count_str = fmt;
+      // Skip count number
+      while (isdigit(*fmt)) {
+        fmt++;
+      }
+      
+      // Default count is 1.
+      int count = 1;
+      // Parse [count] number. The amount of stuff to display.
+      if (count_str != fmt) {
+        count = atoi(count_str);
+        if (count <= 0) {
+          fputs("Invalid count.\n", stdout);
+          continue;
+        }
+      }
+      
+      // Format letters are o(octal), x(hex), d(decimal), u(unsigned decimal)
+      // t(binary), f(float), a(address), i(instruction), c(char) and s(string).
+      char* format = fmt++;
+      if (*format != 'o' && *format != 'x' && *format != 'd' &&
+          *format != 'u' && *format != 'f' && *format != 'c' &&
+          *format != 's') {
+        printf("Invalid format letter '%c'.\n", *format);
+        continue;
+      }
+      
+      // Size letters are b(byte), h(halfword), w(word).
+      char* size_ltr = fmt;
+      
+      unsigned int size;
+      unsigned int line_break;
+      unsigned int mask;
+      switch(*size_ltr) {
+        case 'b':
+          size = 1;
+          line_break = 8;
+          mask = 0x000000ff;
+          break;
+        case 'h':
+          size = 2;
+          line_break = 8;
+          mask = 0x0000ffff;
+          break;
+        case 'w':
+        // Default size is a word, if none was given.
+        case '\0':
+          size = 4;
+          line_break = 4;
+          mask = 0xffffffff;
+          break;
+        default:
+          printf("Invalid size letter '%c'.\n", *size_ltr);
+          continue;
+      }
+      
+      // Skip the size letter.
+      if (*size_ltr != '\0')
+        fmt++;
+      
+      if (*fmt) {
+        fputs("Invalid output format string.\n", stdout);
+        continue;
+      }
+      
+      // Parse address.
+      // We support 3 "magic" addresses:
+      // $cip: instruction pointer
+      // $sp: stack pointer
+      // $hp: heap pointer
+      // $frm: frame pointer
+      cell_t address = 0;
+      if (*params == '$') {
+        if (!stricmp(params, "$cip")) {
+          address = cip_;
+        }
+        // TODO: adjust for selected frame like frm_.
+        else if (!stricmp(params, "$sp")) {
+          address = selected_context_->sp();
+        }
+        else if (!stricmp(params, "$hp")) {
+          address = selected_context_->hp();
+        }
+        else if (!stricmp(params, "$frm")) {
+          address = frm_;
+        }
+        else {
+          printf("Unknown address %s.\n", params);
+          continue;
+        }
+      }
+      // This is a raw address.
+      else {
+        address = (cell_t)strtol(params, NULL, 0);
+      }
+      
+      if (((address >= selected_context_->hp()) && (address < selected_context_->sp())) ||
+           (address < 0) || ((ucell_t)address >= selected_context_->HeapSize())) {
+        fputs("Address out of plugin's bounds.\n", stdout);
+        continue;
+      }
+      
+      // Print the memory
+      // Create a format string for the desired output format.
+      char fmt_string[16];
+      switch(*format) {
+        case 'd':
+        case 'u':
+          snprintf(fmt_string, sizeof(fmt_string), "%%%d%c", size*2, *format);
+          break;
+        case 'o':
+          snprintf(fmt_string, sizeof(fmt_string), "0%%0%d%c", size*2, *format);
+          break;
+        case 'x':
+          snprintf(fmt_string, sizeof(fmt_string), "0x%%0%d%c", size*2, *format);
+          break;
+        case 's':
+          strncpy(fmt_string, "\"%s\"", sizeof(fmt_string));
+          break;
+        case 'c':
+          strncpy(fmt_string, "'%c'", sizeof(fmt_string));
+          break;
+        case 'f':
+          strncpy(fmt_string, "%.2f", sizeof(fmt_string));
+          break;
+        default:
+          continue;
+      }
+      
+      cell_t *data;
+      for (int i=0; i<count; i++) {
+        
+        if (((address >= selected_context_->hp()) && (address < selected_context_->sp())) ||
+            (address < 0) || ((ucell_t)address >= selected_context_->HeapSize()))
+          break;
+        
+        if (i % line_break == 0) {
+          if (i > 0)
+            fputs("\n", stdout);
+          printf("0x%x: ", address);
+        }
+        
+        data = (cell_t *)(selected_context_->memory() + address);
+        
+        switch(*format) {
+          case 'f':
+            printf(fmt_string, sp_ctof(*data));
+            break;
+          case 'd':
+          case 'u':
+          case 'o':
+          case 'x':
+            printf(fmt_string, *data & mask);  
+            break;
+          case 's':
+            printf(fmt_string, (char*)data);
+            break;
+          default:
+            printf(fmt_string, *data);
+            break;
+        }
+        
+        fputs("  ", stdout);
+        
+        // Move to the next address based on the size;
+        address += size;
+      }
+      
+      fputs("\n", stdout);
     }
     else {
       printf("\tInvalid command \"%s\", use \"?\" to view all commands\n", command);

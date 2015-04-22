@@ -132,7 +132,7 @@ class PluginContext : public IPluginContext
     return offsetof(PluginContext, memory_);
   }
 
-  int32_t *addressOfSp() {
+  cell_t *addressOfSp() {
     return &sp_;
   }
   cell_t *addressOfFrm() {
@@ -147,6 +147,9 @@ class PluginContext : public IPluginContext
   }
   cell_t hp() const {
     return hp_;
+  }
+  cell_t sp() const {
+    return sp_;
   }
 
   int popTrackerAndSetHeap();
