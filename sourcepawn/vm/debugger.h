@@ -19,6 +19,10 @@
 #include <smx/smx-v1.h>
 #include "stack-frames.h"
 
+#if !defined snprintf
+#define snprintf _snprintf
+#endif
+
 namespace sp {
 
   using namespace SourcePawn;
