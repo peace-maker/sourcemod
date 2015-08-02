@@ -975,6 +975,9 @@ PluginContext::StartDebugger()
   if (runtime()->IsPaused())
     return false;
   
+  if (!runtime()->image()->SupportsDebugging())
+	  return false;
+
   debugger_->Activate();
   debugger_->SetRunmode(STEPPING);
   return true;

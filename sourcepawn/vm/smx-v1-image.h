@@ -59,6 +59,7 @@ class SmxV1Image
   bool GetFunctionAddress(const char *function, const char *file, uint32_t *funcaddr) KE_OVERRIDE;
   bool GetLineAddress(uint32_t line, const char *file, uint32_t *addr) KE_OVERRIDE;
   const char *FindFileByPartialName(const char *partialname) KE_OVERRIDE;
+  bool SupportsDebugging() KE_OVERRIDE;
   const char *GetTagName(uint32_t tag);
   bool GetVariable(const char *symname, uint32_t scopeaddr, const sp_fdbg_symbol_t **sym);
   bool GetArrayDim(const sp_fdbg_symbol_t *sym, const sp_fdbg_arraydim_t **symdim);

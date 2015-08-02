@@ -789,6 +789,12 @@ const char *SmxV1Image::FindFileByPartialName(const char *partialname)
     return nullptr;
 }
 
+bool SmxV1Image::SupportsDebugging()
+{
+	// Debugger currently only supports packed debug symbols
+	return debug_syms_ != nullptr;
+}
+
 const char *SmxV1Image::GetTagName(uint32_t tag)
 {
   unsigned int index;

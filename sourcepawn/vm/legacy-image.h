@@ -63,6 +63,7 @@ class LegacyImage
   virtual bool GetFunctionAddress(const char *function, const char *file, uint32_t *addr) = 0;
   virtual bool GetLineAddress(uint32_t line, const char *file, uint32_t *addr) = 0;
   virtual const char *FindFileByPartialName(const char *partialname) = 0;
+  virtual bool SupportsDebugging() = 0;
 };
 
 class EmptyImage : public LegacyImage
@@ -139,6 +140,9 @@ class EmptyImage : public LegacyImage
   }
   const char *FindFileByPartialName(const char *partialname) KE_OVERRIDE {
       return nullptr;
+  }
+  bool SupportsDebugging() KE_OVERRIDE {
+	  return false;
   }
 
  private:
