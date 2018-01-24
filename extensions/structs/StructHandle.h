@@ -33,32 +33,41 @@
 #define _INCLUDE_SOURCEMOD_STRUCT_HANDLE_H_
 
 #include "Struct.h"
-#include "vector.h"
-#include "basehandle.h"
+#include "IGameHelpers.h"
+
+struct Vector
+{
+	float x;
+	float y;
+	float z;
+};
+
+class StructInfo;
+class CBaseHandle;
 
 class StructHandle
 {
 public:
-	StructInfo *info;
+	IStructInfo *info;
 	void *data;
 	bool canDelete;
 
 	bool GetInt(const char *member, int *value);
 	bool GetFloat(const char *member, float *value);
 	bool GetVector(const char *member, Vector *vec);
-	bool GetEHandle(const char *member, CBaseHandle **handle);
+	bool GetEHandle(const char *member, edict_t **pEnt);
 	bool GetString(const char *member, char **string);
 	//bool GetStruct(const char *member, handle_t *value);
 
 	bool SetInt(const char *member, int value);
 	bool SetFloat(const char *member, float value);
 	bool SetVector(const char *member, Vector vec);
-	bool SetEHandle(const char *member, CBaseHandle *handle);
+	bool SetEHandle(const char *member, edict_t *pEnt);
 	bool SetString(const char *member, char *string);
 	//bool SetStruct(const char *member, StructHandle *struct);
 
 	bool IsPointerNull(const char *member, bool *result);
-	bool setPointerNull(const char *member);
+	bool SetPointerNull(const char *member);
 };
 
 #endif //_INCLUDE_SOURCEMOD_STRUCT_HANDLE_H_

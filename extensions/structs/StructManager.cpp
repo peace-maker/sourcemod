@@ -34,15 +34,24 @@
 
 StructManager g_StructManager;
 
-void StructManager::AddStruct( const char *name, StructInfo *str )
+void StructManager::AddStruct(const char *name, IStructInfo *str)
 {
 	structs.insert(name, str);
 	structsList.push_back(str);
 }
 
+const char *StructManager::GetInterfaceName()
+{
+	return SMINTERFACE_STRUCTS_NAME;
+}
+unsigned int StructManager::GetInterfaceVersion()
+{
+	return SMINTERFACE_STRUCTS_VERSION;
+}
+
 StructManager::~StructManager()
 {
-	SourceHook::List<StructInfo *>::iterator iter;
+	SourceHook::List<IStructInfo *>::iterator iter;
 
 	iter = structsList.begin();
 
@@ -55,9 +64,9 @@ StructManager::~StructManager()
 	structs.clear();
 }
 
-Handle_t StructManager::CreateStructHandle( const char *type, void *str )
+Handle_t StructManager::CreateStructHandle(const char *type, void *str)
 {
-	StructInfo **pInfo = structs.retrieve(type);
+	IStructInfo **pInfo = structs.retrieve(type);
 
 	if (pInfo == NULL)
 	{
@@ -75,4 +84,24 @@ Handle_t StructManager::CreateStructHandle( const char *type, void *str )
 		NULL, 
 		myself->GetIdentity(), 
 		NULL);
+}
+
+IStructInfo *StructManager::FindStruct(const char *name)
+{
+	IStructInfo **pInfo = structs.retrieve(name);
+
+	if (!pInfo)
+	{
+		return NULL;
+	}
+
+	return *pInfo;
+}
+
+IStructInfo *StructManager::CreateStruct(const char *name)
+{
+	StructInfo *pInfo = new StructInfo();
+	pInfo->SetName(name);
+
+	return pInfo;
 }

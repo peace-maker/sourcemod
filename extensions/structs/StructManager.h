@@ -34,21 +34,26 @@
 
 #include "Struct.h"
 #include "StructHandle.h"
-#include "IStructAbstacter.h"
+#include "IStructs.h"
 #include "IHandleSys.h"
 #include "smsdk_ext.h"
 
 int CheckBaseHandle(CBaseHandle &hndl);
 
-class StructManager : public IStructAbstracter
+class StructManager : public IStructs
 {
 public:
+	virtual const char *GetInterfaceName();
+	virtual unsigned int GetInterfaceVersion();
 	~StructManager();
+public:	//IStructAbstracter
 	Handle_t CreateStructHandle(const char *type, void *str);
-	void AddStruct(const char *name, StructInfo *str);
+	void AddStruct(const char *name, IStructInfo *str);
+	IStructInfo *FindStruct(const char *name);
+	IStructInfo *CreateStruct(const char *name);
 private:
-	KTrie<StructInfo *> structs;
-	SourceHook::List<StructInfo *> structsList;
+	KTrie<IStructInfo *> structs;
+	SourceHook::List<IStructInfo *> structsList;
 };
 
 extern StructManager g_StructManager;

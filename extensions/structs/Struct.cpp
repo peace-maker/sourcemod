@@ -31,7 +31,7 @@
 
 #include "Struct.h"
 
-bool StructInfo::getOffset( const char *member, int *offset )
+bool StructInfo::getOffset(const char *member, int *offset)
 {
 	MemberInfo **pInfo = members.retrieve(member);
 
@@ -45,7 +45,7 @@ bool StructInfo::getOffset( const char *member, int *offset )
 	return true;
 }
 
-bool StructInfo::getType( const char *member, MemberType*type )
+bool StructInfo::getType(const char *member, MemberType*type)
 {
 	MemberInfo **pInfo = members.retrieve(member);
 
@@ -59,7 +59,7 @@ bool StructInfo::getType( const char *member, MemberType*type )
 	return true;
 }
 
-bool StructInfo::getSize( const char *member, int *size )
+bool StructInfo::getSize(const char *member, int *size)
 {
 	MemberInfo **pInfo = members.retrieve(member);
 
@@ -73,7 +73,7 @@ bool StructInfo::getSize( const char *member, int *size )
 	return true;
 }
 
-void StructInfo::AddMember( const char *name, MemberInfo *member )
+void StructInfo::AddMember(const char *name, MemberInfo *member)
 {
 	members.insert(name, member);
 	membersList.push_back(member);
@@ -99,10 +99,44 @@ StructInfo::StructInfo()
 	name[0] = 0;
 	size = -1;
 }
-MemberInfo::MemberInfo()
+
+MemberInfo *StructInfo::FindMember(const char *name)
 {
-	name[0] = 0;
-	size = -1;
-	type = Member_Unknown;
-	offset = -1;
+	MemberInfo **pInfo = members.retrieve(name);
+
+	if (!pInfo)
+	{
+		return NULL;
+	}
+
+	return *pInfo;
+}
+
+void StructInfo::SetName(const char *name)
+{
+	UTIL_Format(this->name, sizeof(this->name), "%s", name);
+}
+
+void StructInfo::SetStructSize(unsigned int size)
+{
+	this->size = size;
+}
+
+const char *StructInfo::GetName()
+{
+	return &name[0];
+}
+
+bool StructInfo::getIndirection(const char *member, int *level)
+{
+	MemberInfo **pInfo = members.retrieve(member);
+
+	if (pInfo == NULL)
+	{
+		return false;
+	}
+
+	*level = (*pInfo)->indirection_level;
+
+	return true;
 }

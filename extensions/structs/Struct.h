@@ -34,52 +34,33 @@
 
 #include "sm_trie_tpl.h"
 #include "sh_list.h"
+#include "IStructs.h"
 
-enum MemberType
+size_t UTIL_Format(char *buffer, size_t maxlength, const char *fmt, ...);
+
+using namespace SourceMod;
+
+class StructInfo : public IStructInfo
 {
-	Member_Unknown,
-	Member_Int8,
-	Member_Int8Pointer,
-	Member_Int16,
-	Member_Int16Pointer,
-	Member_Int32,
-	Member_Int32Pointer,
-	Member_Float,
-	Member_FloatPointer,
-	//Member_Struct,
-	//Member_StructPointer,
-	Member_Char,
-	Member_CharPointer,
-	Member_Vector,
-	Member_VectorPointer,
-	Member_EHandle,
-	Member_EHandlePointer,
-};
-
-struct MemberInfo
-{
-	MemberInfo();
-
-	char name[100];
-	MemberType type;
-	int size;
-	int offset;
-};
-
-struct StructInfo
-{
+public:
 	StructInfo();
 	~StructInfo();
+	void SetName(const char *name);
+	const char *GetName();
 	void AddMember(const char *name, MemberInfo *member);
-
-	char name[100];
-	int size;
-	KTrie<MemberInfo *> members;
-	SourceHook::List<MemberInfo *> membersList;
+	MemberInfo *FindMember(const char *name);
+	void SetStructSize(unsigned int size);
 
 	bool getOffset(const char *member, int *offset);
 	bool getType(const char *member, MemberType*type);
 	bool getSize(const char *member, int *size);
+	bool getIndirection(const char *member, int *level);
+
+private:
+	char name[100];
+	int size;
+	KTrie<MemberInfo *> members;
+	SourceHook::List<MemberInfo *> membersList;
 };
 
 #endif //_INCLUDE_SOURCEMOD_STRUCT_H_

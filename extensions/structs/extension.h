@@ -38,8 +38,8 @@
  */
 
 #include "smsdk_ext.h"
-#include "StructManager.h"
 #include "StructHandle.h"
+#include "StructManager.h"
 #include "Struct.h"
 
 /**
@@ -130,6 +130,8 @@ private:
 	bool m_bInStruct;
 	StructInfo *m_currentStruct;
 	bool m_bInMember;
+	bool m_bStructRequiresInsert;
+	bool m_bMemberRequiresInsert;
 	MemberInfo *m_currentMember;
 
 	KTrie<MemberType> m_typeLookup;

@@ -32,7 +32,11 @@
 #include "StructHandle.h"
 #include "extension.h"
 
-bool StructHandle::GetInt( const char *member, int *value )
+typedef unsigned char uint8;
+typedef unsigned short uint16;
+typedef unsigned long uint32;
+
+bool StructHandle::GetInt(const char *member, int *value)
 {
 	int offset;
 	
@@ -43,46 +47,47 @@ bool StructHandle::GetInt( const char *member, int *value )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Int)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Int8:
+		return false;
+	}
+
+	int size;
+	if (!info->getSize(member, &size))
+	{
+		return false;
+	}
+
+	uint32 *location = (uint32 *)((unsigned char *)data + offset);
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<uint32 **>(location);
+	}
+
+	switch (size)
+	{
+		case 1:
 		{
-			*value = *(uint8 *)((unsigned char *)data + offset);
+			*value = *(uint8 *)location;
 			break;
 		}
 
-		case Member_Int16:
+		case 2:
 		{
-			*value = *(uint16 *)((unsigned char *)data + offset);
+			*value = *(uint16 *)location;
 			break;
 		}
 
-		case Member_Int32:
+		case 4:
 		{
-			*value = *(uint32 *)((unsigned char *)data + offset);
-			break;
-		}
-
-		case Member_Int8Pointer:
-		{
-			*value = **(uint8 **)((unsigned char *)data + offset);
-			break;
-		}
-
-		case Member_Int16Pointer:
-		{
-			*value = **(uint16 **)((unsigned char *)data + offset);
-			break;
-		}
-
-		case Member_Int32Pointer:
-		{
-			*value = **(uint32 **)((unsigned char *)data + offset);
+			*value = *(uint32 *)location;
 			break;
 		}
 
@@ -95,7 +100,7 @@ bool StructHandle::GetInt( const char *member, int *value )
 	return true;
 }
 
-bool StructHandle::GetFloat( const char *member, float *value )
+bool StructHandle::GetFloat(const char *member, float *value)
 {
 	int offset;
 
@@ -106,35 +111,30 @@ bool StructHandle::GetFloat( const char *member, float *value )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Float)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Float:
-		{
-			*value = *(float *)((unsigned char *)data + offset);
-			break;
-		}
-
-		case Member_FloatPointer:
-		{
-			*value = **(float **)((unsigned char *)data + offset);
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	float *location = (float *)((unsigned char *)data + offset);
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<float **>(location);
+	}
+
+	*value = *location;
 
 	return true;
 }
 
-bool StructHandle::SetInt( const char *member, int value )
+bool StructHandle::SetInt(const char *member, int value)
 {
 	int offset;
 
@@ -145,46 +145,47 @@ bool StructHandle::SetInt( const char *member, int value )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Int)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Int8:
+		return false;
+	}
+
+	int size;
+	if (!info->getSize(member, &size))
+	{
+		return false;
+	}
+
+	uint32 *location = (uint32 *)((unsigned char *)data + offset);
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<uint32 **>(location);
+	}
+
+	switch (size)
+	{
+		case 1:
 		{
-			*(uint8 *)((unsigned char *)data + offset) = value;
+			*(uint8 *)location = value;
 			break;
 		}
 
-		case Member_Int16:
+		case 2:
 		{
-			*(uint16 *)((unsigned char *)data + offset) = value;
+			*(uint16 *)location = value;
 			break;
 		}
 
-		case Member_Int32:
+		case 4:
 		{
-			*(uint32 *)((unsigned char *)data + offset) = value;
-			break;
-		}
-
-		case Member_Int8Pointer:
-		{
-			**(uint8 **)((unsigned char *)data + offset) = value;
-			break;
-		}
-
-		case Member_Int16Pointer:
-		{
-			**(uint16 **)((unsigned char *)data + offset) = value;
-			break;
-		}
-
-		case Member_Int32Pointer:
-		{
-			**(uint32 **)((unsigned char *)data + offset) = value;
+			*(uint32 *)location = value;
 			break;
 		}
 
@@ -197,7 +198,7 @@ bool StructHandle::SetInt( const char *member, int value )
 	return true;
 }
 
-bool StructHandle::SetFloat( const char *member, float value )
+bool StructHandle::SetFloat(const char *member, float value)
 {
 	int offset;
 
@@ -208,35 +209,84 @@ bool StructHandle::SetFloat( const char *member, float value )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Float)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Float:
-		{
-			*(float *)((unsigned char *)data + offset) = value;
-			break;
-		}
-
-		case Member_FloatPointer:
-		{
-			**(float **)((unsigned char *)data + offset) = value;
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	float *location = (float *)((unsigned char *)data + offset);
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<float **>(location);
+	}
+
+	*location = value;
 
 	return true;
 }
 
-bool StructHandle::IsPointerNull( const char *member, bool *result )
+bool StructHandle::IsPointerNull(const char *member, bool *result)
+{
+	int offset;
+
+	if (!info->getOffset(member, &offset))
+	{
+		return false;
+	}
+
+	int indirection;
+	if (!info->getIndirection(member, &indirection) || indirection == 0)
+	{
+		return false;
+	}
+
+	unsigned char **location = (unsigned char **)data + offset;
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<unsigned char ***>(location);
+	}
+
+	*result = (*location == NULL);
+
+	return true;
+}
+
+bool StructHandle::SetPointerNull(const char *member)
+{
+	int offset;
+
+	if (!info->getOffset(member, &offset))
+	{
+		return false;
+	}
+
+	int indirection;
+	if (!info->getIndirection(member, &indirection) || indirection == 0)
+	{
+		return false;
+	}
+
+	unsigned char **location = (unsigned char **)data + offset;
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<unsigned char ***>(location);
+	}
+
+	*location = NULL;
+
+	return true;
+}
+
+bool StructHandle::GetVector(const char *member, Vector *vec)
 {
 	int offset;
 
@@ -247,35 +297,30 @@ bool StructHandle::IsPointerNull( const char *member, bool *result )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Vector)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Int8Pointer:
-		case Member_Int16Pointer:
-		case Member_Int32Pointer:
-		case Member_FloatPointer:
-		case Member_CharPointer:
-		case Member_VectorPointer:
-		case Member_EHandlePointer:
-		{
-			*result = *((unsigned char **)data + offset) == NULL;
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	Vector *location = (Vector *)((unsigned char *)data + offset);
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<Vector **>(location);
+	}
+
+	*vec = *location;
 
 	return true;
 }
 
-bool StructHandle::setPointerNull( const char *member )
+bool StructHandle::SetVector(const char *member, Vector vec)
 {
 	int offset;
 
@@ -286,35 +331,30 @@ bool StructHandle::setPointerNull( const char *member )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Vector)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Int8Pointer:
-		case Member_Int16Pointer:
-		case Member_Int32Pointer:
-		case Member_FloatPointer:
-		case Member_CharPointer:
-		case Member_VectorPointer:
-		case Member_EHandlePointer:
-		{
-			*((unsigned char **)data + offset) = NULL;
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	Vector *location = (Vector *)((unsigned char *)data + offset);
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<Vector **>(location);
+	}
+
+	*location = vec;
 
 	return true;
 }
 
-bool StructHandle::GetVector( const char *member, Vector *vec )
+bool StructHandle::GetString(const char *member, char **string)
 {
 	int offset;
 
@@ -325,35 +365,30 @@ bool StructHandle::GetVector( const char *member, Vector *vec )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Char)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Vector:
-		{
-			*vec = *(Vector *)((unsigned char *)data + offset);
-			break;
-		}
-
-		case Member_VectorPointer:
-		{
-			*vec = **(Vector **)((unsigned char *)data + offset);
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	char *location = (char *)((unsigned char *)data + offset);
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<char **>(location);
+	}
+
+	*string = location;
 
 	return true;
 }
 
-bool StructHandle::SetVector( const char *member, Vector vec )
+bool StructHandle::SetString(const char *member, char *string)
 {
 	int offset;
 
@@ -364,35 +399,32 @@ bool StructHandle::SetVector( const char *member, Vector vec )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_Char)
 	{
 		return false;
 	}
 
-	switch (type)
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Vector:
-		{
-			*(Vector *)((unsigned char *)data + offset) = vec;
-			break;
-		}
-
-		case Member_VectorPointer:
-		{
-			**(Vector **)((unsigned char *)data + offset) = vec;
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	int size;
+	info->getSize(member, &size);
+	char *location = (char *)data + offset;
+
+	for(int i = 0; i < indirection; i++)
+	{
+		location = *reinterpret_cast<char **>(location);
+	}
+	
+	UTIL_Format(location, size, "%s", string);
 
 	return true;
 }
 
-bool StructHandle::GetString( const char *member, char **string )
+bool StructHandle::GetEHandle(const char *member, edict_t **pEnt)
 {
 	int offset;
 
@@ -403,35 +435,30 @@ bool StructHandle::GetString( const char *member, char **string )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_EHandle)
 	{
 		return false;
 	}
 
-	switch (type)
+	CBaseHandle *pHandle = (CBaseHandle *)((unsigned char *)data + offset);
+
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Char:
-		{
-			*string = (char *)((unsigned char *)data + offset);
-			break;
-		}
-
-		case Member_CharPointer:
-		{
-			*string = *(char **)((unsigned char *)data + offset);
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	for(int i = 0; i < indirection; i++)
+	{
+		pHandle = *reinterpret_cast<CBaseHandle **>(pHandle);
+	}
+
+	*pEnt = gamehelpers->GetHandleEntity(*pHandle);
 
 	return true;
 }
 
-bool StructHandle::SetString( const char *member, char *string )
+bool StructHandle::SetEHandle(const char *member, edict_t *pEnt)
 {
 	int offset;
 
@@ -442,115 +469,25 @@ bool StructHandle::SetString( const char *member, char *string )
 
 	MemberType type;
 
-	if (!info->getType(member, &type))
+	if (!info->getType(member, &type) || type != Member_EHandle)
 	{
 		return false;
 	}
 
-	switch (type)
+	CBaseHandle *pHandle = (CBaseHandle *)((unsigned char *)data + offset);
+
+	int indirection;
+	if (!info->getIndirection(member, &indirection))
 	{
-		case Member_Char:
-		{
-			int size;
-			info->getSize(member, &size);
-			char *location = (char *)data + offset;
-			UTIL_Format(location, size, "%s", string);
-			break;
-		}
-
-		case Member_CharPointer:
-		{
-			int size;
-			info->getSize(member, &size);
-			char *location = *(char **)((unsigned char *)data + offset);
-			UTIL_Format(location, size, "%s", string);
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
+		return false;
 	}
+
+	for(int i = 0; i < indirection; i++)
+	{
+		pHandle = *reinterpret_cast<CBaseHandle **>(pHandle);
+	}
+
+	gamehelpers->SetHandleEntity(*pHandle, pEnt);
 
 	return true;
 }
-
-bool StructHandle::GetEHandle( const char *member, CBaseHandle **handle )
-{
-	int offset;
-
-	if (!info->getOffset(member, &offset))
-	{
-		return false;
-	}
-
-	MemberType type;
-
-	if (!info->getType(member, &type))
-	{
-		return false;
-	}
-
-	switch (type)
-	{
-		case Member_EHandle:
-		{
-			*handle = (CBaseHandle *)((unsigned char *)data + offset);
-			break;
-		}
-
-		case Member_EHandlePointer:
-		{
-			*handle = *(CBaseHandle **)((unsigned char *)data + offset);
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-bool StructHandle::SetEHandle( const char *member, CBaseHandle *handle )
-{
-	int offset;
-
-	if (!info->getOffset(member, &offset))
-	{
-		return false;
-	}
-
-	MemberType type;
-
-	if (!info->getType(member, &type))
-	{
-		return false;
-	}
-
-	switch (type)
-	{
-		case Member_Float:
-		{
-			*(CBaseHandle *)((unsigned char *)data + offset) = *handle;
-			break;
-		}
-
-		case Member_FloatPointer:
-		{
-			**(CBaseHandle **)((unsigned char *)data + offset) = *handle;
-			break;
-		}
-
-		default:
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-

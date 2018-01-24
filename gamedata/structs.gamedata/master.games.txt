@@ -1,0 +1,11 @@
+"Game Master"
+{
+	"common.offsets.txt"
+	{
+	}
+	
+	"game.tf.txt"
+	{
+		"game"		"tf"
+	}
+}

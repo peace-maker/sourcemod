@@ -1,0 +1,267 @@
+"Games"
+{
+	"Structs"
+	{
+		"FileWeaponInfo_t"
+		{
+			"iDamage"
+			{
+				"type"          "int"
+				"size"          "4"
+				"linux"         "1704"
+				"windows"	"1704"
+			}
+			
+			"iBulletsPerShot"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"1708"
+				"linux"		"1708"
+			}
+
+			"fRange"
+			{
+				"type"		"float"
+				"linux"		"1712"
+				"windows"	"1712"
+			}
+			
+			"fSpread"
+			{
+				"type"		"float"
+				"windows"	"1716"
+				"linux"		"1716"
+			}
+			
+			"fPunchAngle"
+			{
+				"type"		"float"
+				"windows"	"1720"
+				"linux"		"1720"
+			}
+			
+			"fTimeFireDelay"
+			{
+				"type"		"float"
+				"windows"	"1724"
+				"linux"		"1724"
+			}
+			
+			"fTimeIdle"
+			{
+				"type"		"float"
+				"windows"	"1728"
+				"linux"		"1728"
+			}
+			
+			"fTimeIdleEmpty"
+			{
+				"type"		"float"
+				"windows"	"1732"
+				"linux"		"1732"
+			}
+			
+			"fTimeReloadStart"
+			{
+				"type"		"float"
+				"windows"	"1736"
+				"linux"		"1736"
+			}
+			
+			"fTimeReload"
+			{
+				"type"		"float"
+				"windows"	"1740"
+				"linux"		"1740"
+			}
+		
+			"bDrawCrosshair"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1744"
+				"linux"		"1744"
+			}
+			
+			"iAmmoPerShot"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"1752"
+				"linux"		"1752"
+			}
+			
+			"bUseRapidFireCrits"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1764"
+				"linux"		"1764"
+			}
+			
+			"iProjectileType"
+			{
+				"type"          "int"
+				"size"          "1"
+				"windows"	"1748"
+				"linux"         "1748"
+			}
+			
+			"fProjectileSpeed"
+			{
+				"type"          "float"
+				"windows"	"1756"
+				"linux"         "1756"
+			}
+			
+			"fSmackDelay"
+			{
+				"type"          "float"
+				"windows"	"1760"
+				"linux"         "1760"
+			}
+						
+			"bDoInstantEjectBrass"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"2240"
+				"linux"		"2240"
+			}
+			
+			"szBrassModel"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"2241"
+				"linux"		"2241"
+			}
+			
+			"bGrenade"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1836"
+				"linux"		"1836"
+			}
+			
+			"fDamageRadius"
+			{
+				"type"		"float"
+				"windows"	"1840"
+				"linux"		"1840"
+			}
+			
+			"fPrimerTime"
+			{
+				"type"		"float"
+				"windows"	"1844"
+				"linux"		"1844"
+			}
+			
+			"bPlayGrenTimer"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1849"
+				"linux"		"1849"
+			}
+			
+			"bLowerMainWeapon"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1848"
+				"linux"		"1848"
+			}
+			
+			"bHasTeamSkins_Viewmodel"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1850"
+				"linux"		"1850"
+			}
+			
+			"bHasTeamSkins_Worldmodel"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1851"
+				"linux"		"1851"
+			}
+			
+			"szMuzzleFlashModel"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"1852"
+				"linux"		"1852"
+			}
+			
+			"fMuzzleFlashModelDuration"
+			{
+				"type"		"float"
+				"windows"	"1980"
+				"linux"		"1980"
+			}
+			
+			"szMuzzleFlashParticleEffect"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"1984"
+				"linux"		"1984"
+			}
+			
+			"szTracerEffect"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"2112"
+				"linux"		"2112"
+			}
+			
+			"szExplosionSound"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"2369"
+				"linux"		"2369"
+			}
+			
+			"szExplosionEffect"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"2497"
+				"linux"		"2497"
+			}
+			
+			"szExplosionPlayerEffect"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"2625"
+				"linux"		"2625"
+			}
+			
+			"szExplosionWaterEffect"
+			{
+				"type"		"char"
+				"size"		"128"
+				"windows"	"2753"
+				"linux"		"2753"
+			}
+			
+			"bDontDrop"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"2881"
+				"linux"		"2881"
+			}
+		}
+	}
+}

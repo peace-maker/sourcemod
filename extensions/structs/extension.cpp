@@ -92,20 +92,15 @@ void Structs::SDK_OnUnload()
 	gameconfs->RemoveUserConfigHook("Structs", this);
 }
 
-bool Structs::SDK_OnLoad( char *error, size_t maxlength, bool late )
+bool Structs::SDK_OnLoad(char *error, size_t maxlength, bool late)
 {
 	sharesys->AddInterface(myself, &g_StructManager);
 
-	m_typeLookup.insert("int", Member_Int32);
-	m_typeLookup.insert("int*", Member_Int32Pointer);
+	m_typeLookup.insert("int", Member_Int);
 	m_typeLookup.insert("float", Member_Float);
-	m_typeLookup.insert("float*", Member_FloatPointer);
 	m_typeLookup.insert("char", Member_Char);
-	m_typeLookup.insert("char*", Member_CharPointer);
 	m_typeLookup.insert("Vector", Member_Vector);
-	m_typeLookup.insert("Vector*", Member_VectorPointer);
 	m_typeLookup.insert("ent", Member_EHandle);
-	m_typeLookup.insert("ent*", Member_EHandlePointer);
 
 	return true;
 }
@@ -118,12 +113,22 @@ void Structs::ReadSMC_ParseStart()
 	m_currentMember = NULL;
 }
 
-SourceMod::SMCResult Structs::ReadSMC_NewSection( const SMCStates *states, const char *name )
+SourceMod::SMCResult Structs::ReadSMC_NewSection(const SMCStates *states, const char *name)
 {
 	if (!m_bInStruct)
 	{
-		m_currentStruct = new StructInfo();
-		UTIL_Format(m_currentStruct->name, sizeof(m_currentStruct->name), "%s", name);
+		m_currentStruct = (StructInfo *)g_StructManager.FindStruct(name);
+
+		if (m_currentStruct == NULL)
+		{
+			m_currentStruct = (StructInfo *)g_StructManager.CreateStruct(name);
+			m_bStructRequiresInsert = true;
+		}
+		else
+		{
+			m_bStructRequiresInsert = false;
+		}
+		
 		m_bInStruct = true;
 
 		return SMCResult_Continue;
@@ -131,19 +136,37 @@ SourceMod::SMCResult Structs::ReadSMC_NewSection( const SMCStates *states, const
 
 	if (!m_bInMember)
 	{
+		m_currentMember = m_currentStruct->FindMember(name);
+
+		if (m_currentMember == NULL)
+		{
+			m_currentMember = new MemberInfo();
+			UTIL_Format(m_currentMember->name, sizeof(m_currentMember->name), "%s", name);
+		}
+
 		m_bInMember = true;
-		m_currentMember = new MemberInfo();
-		UTIL_Format(m_currentMember->name, sizeof(m_currentMember->name), "%s", name);
 
 		return SMCResult_Continue;
 	}
 
 	g_pSM->LogMessage(myself, "Cannot nest within a member: line: %i col: %i", states->line, states->col);
 
+	if (m_bMemberRequiresInsert)
+	{
+		delete m_currentMember;
+	}
+	m_currentMember = NULL;
+
+	if (m_bStructRequiresInsert)
+	{
+		delete m_currentStruct;
+	}
+	m_currentStruct = NULL;
+
 	return SMCResult_HaltFail;
 }
 
-SourceMod::SMCResult Structs::ReadSMC_KeyValue( const SMCStates *states, const char *key, const char *value )
+SourceMod::SMCResult Structs::ReadSMC_KeyValue(const SMCStates *states, const char *key, const char *value)
 {
 	if (!m_bInStruct)
 	{
@@ -162,6 +185,19 @@ SourceMod::SMCResult Structs::ReadSMC_KeyValue( const SMCStates *states, const c
 			{
 				//invalid type
 				g_pSM->LogMessage(myself, "Invalid Type: line: %i col: %i", states->line, states->col);
+
+				if (m_bMemberRequiresInsert)
+				{
+					delete m_currentMember;
+				}
+				m_currentMember = NULL;
+
+				if (m_bStructRequiresInsert)
+				{
+					delete m_currentStruct;
+				}
+				m_currentStruct = NULL;
+
 				return SMCResult_HaltFail;
 			}
 
@@ -180,19 +216,23 @@ SourceMod::SMCResult Structs::ReadSMC_KeyValue( const SMCStates *states, const c
 		{
 			m_currentMember->offset = atoi(value);
 		}
+		else if (strcmp(key, "indirection") == 0)
+		{
+			m_currentMember->indirection_level = atoi(value);
+		}
 	}
 	else
 	{
 		if (strcmp(key, "size") == 0)
 		{
-			m_currentStruct->size = atoi(value);
+			m_currentStruct->SetStructSize(atoi(value));
 		}
 	}
 
 	return SMCResult_Continue;
 }
 
-SourceMod::SMCResult Structs::ReadSMC_LeavingSection( const SMCStates *states )
+SourceMod::SMCResult Structs::ReadSMC_LeavingSection(const SMCStates *states)
 {
 	if (m_bInMember)
 	{
@@ -200,6 +240,19 @@ SourceMod::SMCResult Structs::ReadSMC_LeavingSection( const SMCStates *states )
 		if (m_currentMember->type == Member_Unknown || m_currentMember->offset == -1)
 		{
 			g_pSM->LogMessage(myself, "Missing offset or type: line: %i col: %i", states->line, states->col);
+
+			if (m_bMemberRequiresInsert)
+			{
+				delete m_currentMember;
+			}
+			m_currentMember = NULL;
+
+			if (m_bStructRequiresInsert)
+			{
+				delete m_currentStruct;
+			}
+			m_currentStruct = NULL;
+
 			return SMCResult_HaltFail;
 		}
 
@@ -208,11 +261,8 @@ SourceMod::SMCResult Structs::ReadSMC_LeavingSection( const SMCStates *states )
 			switch (m_currentMember->type)
 			{
 				case Member_Float:
-				case Member_FloatPointer:
 				case Member_Vector:
-				case Member_VectorPointer:
 				case Member_EHandle:
-				case Member_EHandlePointer:
 				{
 					break;
 				}
@@ -220,55 +270,52 @@ SourceMod::SMCResult Structs::ReadSMC_LeavingSection( const SMCStates *states )
 				default:
 				{
 					g_pSM->LogMessage(myself, "Missing size: line: %i col: %i", states->line, states->col);
+
+					if (m_bMemberRequiresInsert)
+					{
+						delete m_currentMember;
+					}
+					m_currentMember = NULL;
+
+					if (m_bStructRequiresInsert)
+					{
+						delete m_currentStruct;
+					}
+					m_currentStruct = NULL;
+
 					return SMCResult_HaltFail;
 				}
 			}
 		}
 
 		/* Work out the int size */
-		if (m_currentMember->type == Member_Int32)
+		if (m_currentMember->type == Member_Int)
 		{
-			if (m_currentMember->size == 1)
-			{
-				m_currentMember->type = Member_Int8;
-			} 
-			else if (m_currentMember->size == 2)
-			{
-				m_currentMember->type = Member_Int16;
-			} 
-			else if (m_currentMember->size == 4)
-			{
-				m_currentMember->type = Member_Int32;
-			} 
-			else
+			if (m_currentMember->size != 1 && m_currentMember->size != 2 && m_currentMember->size != 4)
 			{
 				g_pSM->LogMessage(myself, "Invalid int size %i: line: %i col: %i", m_currentMember->size, states->line, states->col);
+
+				if (m_bMemberRequiresInsert)
+				{
+					delete m_currentMember;
+				}
+				m_currentMember = NULL;
+
+				if (m_bStructRequiresInsert)
+				{
+					delete m_currentStruct;
+				}
+				m_currentStruct = NULL;
+
 				return SMCResult_HaltFail;
 			}
 
 		} 
-		else if (m_currentMember->type == Member_Int32)
-		{
-			if (m_currentMember->size == 1)
-			{
-				m_currentMember->type = Member_Int8Pointer;
-			} 
-			else if (m_currentMember->size == 2)
-			{
-				m_currentMember->type = Member_Int16Pointer;
-			} 
-			else if (m_currentMember->size == 4)
-			{
-				m_currentMember->type = Member_Int32Pointer;
-			} 
-			else
-			{
-				g_pSM->LogMessage(myself, "Invalid int size %i: line: %i col: %i", m_currentMember->size, states->line, states->col);
-				return SMCResult_HaltFail;
-			}
-		}
 
-		m_currentStruct->AddMember(m_currentMember->name, m_currentMember);
+		if (m_bMemberRequiresInsert)
+		{
+			m_currentStruct->AddMember(m_currentMember->name, m_currentMember);
+		}
 
 		m_bInMember = false;
 		m_currentMember = NULL;
@@ -276,7 +323,10 @@ SourceMod::SMCResult Structs::ReadSMC_LeavingSection( const SMCStates *states )
 		return SMCResult_Continue;
 	}
 
-	g_StructManager.AddStruct(m_currentStruct->name, m_currentStruct);
+	if (m_bStructRequiresInsert)
+	{
+		g_StructManager.AddStruct(m_currentStruct->GetName(), m_currentStruct);
+	}
 
 	m_bInStruct = false;
 	m_currentStruct = NULL;

@@ -1,0 +1,217 @@
+"Games"
+{
+	"Structs"
+	{
+		"FileWeaponInfo_t"
+		{
+			"bParsedScript"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"4"
+				"linux"		"4"
+			}
+
+			"bLoadedHudElements"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"5"
+				"linux"		"5"
+			}
+
+			"szClassName"
+			{
+				"type"		"char"
+				"size"		"80"
+				"windows"	"6"
+				"linux"		"6"
+			}
+
+			"szPrintName"
+			{
+				"type"		"char"
+				"size"		"80"
+				"windows"	"86"
+				"linux"		"86"
+			}
+
+			"szViewModel"
+			{
+				"type"		"char"
+				"size"		"80"
+				"windows"	"166"
+				"linux"		"166"
+			}
+
+			"szWorldModel"
+			{
+				"type"		"char"
+				"size"		"80"
+				"windows"	"246"
+				"linux"		"246"
+			}
+
+			"szAnimationPrefix"
+			{
+				"type"		"char"
+				"size"		"16"
+				"windows"	"326"
+				"linux"		"326"
+			}
+
+			"iSlot"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"344"
+				"linux"		"344"
+			}
+
+			"iPosition"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"348"
+				"linux"		"348"
+			}
+
+			"iMaxClip1"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"352"
+				"linux"		"352"
+			}
+
+			"iMaxClip2"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"356"
+				"linux"		"356"
+			}
+
+			"iDefaultClip1"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"360"
+				"linux"		"360"
+			}
+
+			"iDefaultClip2"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"364"
+				"linux"		"364"
+			}
+
+			"iWeight"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"368"
+				"linux"		"368"
+			}
+
+			"iRumbleEffect"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"372"
+				"linux"		"372"
+			}
+
+			"bAutoSwitchFrom"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"376"
+				"linux"		"376"
+			}
+
+			"bAutoSwitchTo"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"377"
+				"linux"		"377"
+			}
+
+			"iFlags"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"380"
+				"linux"		"380"
+			}
+
+			"szAmmo1"
+			{
+				"type"		"char"
+				"size"		"32"
+				"windows"	"384"
+				"linux"		"384"
+			}
+
+			"szAmmo2"
+			{
+				"type"		"char"
+				"size"		"32"
+				"windows"	"416"
+				"linux"		"416"
+			}
+
+			/* I could split this up into 15 strings of length 80 */
+			"aShootSounds"
+			{
+				"type"		"char"
+				"size"		"1200"
+				"windows"	"448"
+				"linux"		"448"
+			}
+
+			"iAmmoType"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"1648"
+				"linux"		"1648"
+			}
+
+			"iAmmo2Type"
+			{
+				"type"		"int"
+				"size"		"4"
+				"windows"	"1652"
+				"linux"		"1652"
+			}
+
+			"m_bMeleeWeapon"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1656"
+				"linux"		"1656"
+			}
+
+			"m_bBuiltRightHanded"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1657"
+				"linux"		"1657"
+			}
+
+			"m_bAllowFlipping"
+			{
+				"type"		"int"
+				"size"		"1"
+				"windows"	"1658"
+				"linux"		"1658"
+			}
+		}
+	}
+}
