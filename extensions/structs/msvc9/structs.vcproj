@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..;..\sdk;..\..\..\public\extensions;..\..\..\public;..\..\..\public\sourcepawn;&quot;$(MMSOURCE10)\core\sourcehook&quot;"
+				AdditionalIncludeDirectories="..;..\sdk;..\..\..\public\extensions;..\..\..\public;..\..\..\sourcepawn\include;&quot;$(MMSOURCE10)\core\sourcehook&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;SDK_EXPORTS;_CRT_SECURE_NO_DEPRECATE;SOURCEMOD_BUILD"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -121,7 +121,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				FavorSizeOrSpeed="1"
-				AdditionalIncludeDirectories="..;..\sdk;..\..\..\public;..\..\..\public\extensions;..\..\..\public\sourcepawn;&quot;$(MMSOURCE10)\core\sourcehook&quot;"
+				AdditionalIncludeDirectories="..;..\sdk;..\..\..\public;..\..\..\public\extensions;..\..\..\sourcepawn\include;&quot;$(MMSOURCE10)\core\sourcehook&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;SDK_EXPORTS;_CRT_SECURE_NO_DEPRECATE;SOURCEMOD_BUILD"
 				RuntimeLibrary="0"
 				EnableEnhancedInstructionSet="0"
@@ -238,15 +238,15 @@
 			UniqueIdentifier="{31958233-BB2D-4e41-A8F9-CE8A4684F436}"
 			>
 			<File
-				RelativePath="..\sdk\smsdk_config.h"
+				RelativePath="..\smsdk_config.h"
 				>
 			</File>
 			<File
-				RelativePath="..\sdk\smsdk_ext.cpp"
+				RelativePath="..\..\..\public\smsdk_ext.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\sdk\smsdk_ext.h"
+				RelativePath="..\..\..\public\smsdk_ext.h"
 				>
 			</File>
 		</Filter>
