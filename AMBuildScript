@@ -653,6 +653,7 @@ BuildScripts = [
   'extensions/sdkhooks/AMBuilder',
   'extensions/sdktools/AMBuilder',
   'extensions/sqlite/AMBuilder',
+  'extensions/structs/AMBuilder',
   'extensions/tf2/AMBuilder',
   'extensions/topmenus/AMBuilder',
   'extensions/updater/AMBuilder',
