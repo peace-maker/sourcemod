@@ -178,7 +178,36 @@ enum DHookRegister
 	DHookRegister_XMM7,
 
 	// 80-bit FPU registers
-	DHookRegister_ST0
+	DHookRegister_ST0,
+
+	// 64-bit only register
+	DHookRegister_RAX,
+	DHookRegister_RCX,
+	DHookRegister_RDX,
+	DHookRegister_RBX,
+	DHookRegister_RSP,
+	DHookRegister_RBP,
+	DHookRegister_RSI,
+	DHookRegister_RDI,
+
+	DHookRegister_R8,
+	DHookRegister_R9,
+	DHookRegister_R10,
+	DHookRegister_R11,
+	DHookRegister_R12,
+	DHookRegister_R13,
+	DHookRegister_R14,
+	DHookRegister_R15,
+
+	DHookRegister_XMM8,
+	DHookRegister_XMM9,
+	DHookRegister_XMM10,
+	DHookRegister_XMM11,
+	DHookRegister_XMM12,
+	DHookRegister_XMM13,
+	DHookRegister_XMM14,
+	DHookRegister_XMM15,
+
 };
 
 typeset ListenCB

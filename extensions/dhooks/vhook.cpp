@@ -32,7 +32,7 @@
 #include "vhook.h"
 #include "vfunc_call.h"
 #include "util.h"
-#include <macro-assembler-x86.h>
+#include <macro-assembler.h>
 
 SourceHook::IHookManagerAutoGen *g_pHookManager = NULL;
 
@@ -47,6 +47,7 @@ using namespace sp;
 #define OBJECT_OFFSET (sizeof(void *)*2)
 #endif
 
+#ifdef KE_ARCH_X86
 #ifndef  WIN32
 void *GenerateThunk(ReturnType type)
 {
@@ -135,9 +136,17 @@ void *GenerateThunk(ReturnType type)
 	return base;
 }
 #endif
+#else
+// x64 mock
+void *GenerateThunk(ReturnType type)
+{
+	return nullptr;
+}
+#endif
 
 DHooksManager::DHooksManager(HookSetup *setup, void *iface, IPluginFunction *remove_callback, IPluginFunction *plugincb, bool post)
 {
+	assert(g_pHookManager != NULL);
 	this->callback = MakeHandler(setup->returnType);
 	this->hookid = 0;
 	this->remove_callback = remove_callback;
@@ -194,6 +203,23 @@ DHooksManager::DHooksManager(HookSetup *setup, void *iface, IPluginFunction *rem
 	this->pManager = g_pHookManager->MakeHookMan(protoInfo, 0, this->callback->offset);
 
 	this->hookid = g_SHPtr->AddHook(g_PLID,ISourceHook::Hook_Normal, iface, 0, this->pManager, this->callback, this->callback->post);
+}
+
+DHooksManager::~DHooksManager()
+{
+	if(this->hookid)
+	{
+		g_SHPtr->RemoveHookByID(this->hookid);
+		if(this->remove_callback)
+		{
+			this->remove_callback->PushCell(this->hookid);
+			this->remove_callback->Execute(NULL);
+		}
+		if(this->pManager)
+		{
+			g_pHookManager->ReleaseHookMan(this->pManager);
+		}
+	}
 }
 
 void CleanupHooks(IPluginContext *pContext)
@@ -389,7 +415,11 @@ cell_t GetThisPtr(void *iface, ThisPointerType type)
 		return gamehelpers->EntityToBCompatRef((CBaseEntity *)iface);
 	}
 
+#ifdef KE_ARCH_X86
 	return (cell_t)iface;
+#else
+	return smutils->ToPseudoAddress(iface);
+#endif
 }
 
 #ifdef  WIN32

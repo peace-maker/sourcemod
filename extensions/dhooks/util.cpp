@@ -230,6 +230,60 @@ Register_t DynamicHooks_ConvertRegisterFrom(PluginRegister reg)
 
 	case DHookRegister_ST0:
 		return ST0;
+	
+	// 64-bit only register
+#ifdef KE_ARCH_X64
+	case DHookRegister_RAX:
+		return RAX;
+	case DHookRegister_RCX:
+		return RCX;
+	case DHookRegister_RDX:
+		return RDX;
+	case DHookRegister_RBX:
+		return RBX;
+	case DHookRegister_RSP:
+		return RSP;
+	case DHookRegister_RBP:
+		return RBP;
+	case DHookRegister_RSI:
+		return RSI;
+	case DHookRegister_RDI:
+		return RDI;
+
+	case DHookRegister_R8:
+		return R8;
+	case DHookRegister_R9:
+		return R9;
+	case DHookRegister_R10:
+		return R10;
+	case DHookRegister_R11:
+		return R11;
+	case DHookRegister_R12:
+		return R12;
+	case DHookRegister_R13:
+		return R13;
+	case DHookRegister_R14:
+		return R14;
+	case DHookRegister_R15:
+		return R15;
+
+	case DHookRegister_XMM8:
+		return XMM8;
+	case DHookRegister_XMM9:
+		return XMM9;
+	case DHookRegister_XMM10:
+		return XMM10;
+	case DHookRegister_XMM11:
+		return XMM11;
+	case DHookRegister_XMM12:
+		return XMM12;
+	case DHookRegister_XMM13:
+		return XMM13;
+	case DHookRegister_XMM14:
+		return XMM14;
+	case DHookRegister_XMM15:
+		return XMM15;
+#endif
 	}
 
 	return None;

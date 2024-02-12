@@ -31,6 +31,16 @@
 
 #include <signatures.h>
 
+#if defined KE_ARCH_X86
+	#define THIS_ARCH_SUFFIX ""
+	#define OTHER_ARCH_SUFFIX "64"
+#elif defined KE_ARCH_X64
+	#define THIS_ARCH_SUFFIX "64"
+	#define OTHER_ARCH_SUFFIX ""
+#else
+	#error "Unknown architecture"
+#endif
+
 SignatureGameConfig *g_pSignatures;
 
 enum ParseState
@@ -73,12 +83,14 @@ SMCResult SignatureGameConfig::ReadSMC_NewSection(const SMCStates *states, const
 	}
 
 	// Handle platform specific sections first.
-#if defined WIN32
-	if (!strcmp(name, "windows"))
-#elif defined _LINUX
-	if (!strcmp(name, "linux"))
-#elif defined _OSX
-	if (!strcmp(name, "mac"))
+#if defined KE_WINDOWS
+	if (!strcmp(name, "windows" THIS_ARCH_SUFFIX))
+#elif defined KE_LINUX
+	if (!strcmp(name, "linux" THIS_ARCH_SUFFIX))
+#elif defined KE_MACOSX
+	if (!strcmp(name, "mac" THIS_ARCH_SUFFIX))
+#else
+#error "Unknown platform"
 #endif
 	{
 		// We're already in a section for a different OS that we're ignoring. Can't have a section for our OS in here.
@@ -99,12 +111,12 @@ SMCResult SignatureGameConfig::ReadSMC_NewSection(const SMCStates *states, const
 		g_PlatformOnlyState = g_ParseState;
 		return SMCResult_Continue;
 	}
-#if defined WIN32
-	else if (!strcmp(name, "linux") || !strcmp(name, "mac"))
-#elif defined _LINUX
-	else if (!strcmp(name, "windows") || !strcmp(name, "mac"))
-#elif defined _OSX
-	else if (!strcmp(name, "windows") || !strcmp(name, "linux"))
+#if defined KE_WINDOWS
+	else if (!strcmp(name, "windows" OTHER_ARCH_SUFFIX) || !strcmp(name, "linux") || !strcmp(name, "linux64") || !strcmp(name, "mac") || !strcmp(name, "mac64"))
+#elif defined KE_LINUX
+	else if (!strcmp(name, "linux" OTHER_ARCH_SUFFIX) || !strcmp(name, "windows") || !strcmp(name, "windows64") || !strcmp(name, "mac") || !strcmp(name, "mac64"))
+#elif defined KE_MACOSX
+	else if (!strcmp(name, "mac" OTHER_ARCH_SUFFIX) || !strcmp(name, "windows") || !strcmp(name, "windows64") || !strcmp(name, "linux") || !strcmp(name, "linux64"))
 #endif
 	{
 		if (g_PlatformOnlyState != PState_None)
@@ -614,6 +626,118 @@ Register_t SignatureGameConfig::GetCustomRegisterFromString(const char *str)
 
 	else if (!strcmp(str, "st0"))
 		return ST0;
+
+#ifdef KE_ARCH_X64
+	else if (!strcmp(str, "spl"))
+		return SPL;
+	else if (!strcmp(str, "bpl"))
+		return BPL;
+	else if (!strcmp(str, "sil"))
+		return SIL;
+	else if (!strcmp(str, "dil"))
+		return DIL;
+	else if (!strcmp(str, "r8b"))
+		return R8B;
+	else if (!strcmp(str, "r9b"))
+		return R9B;
+	else if (!strcmp(str, "r10b"))
+		return R10B;
+	else if (!strcmp(str, "r11b"))
+		return R11B;
+	else if (!strcmp(str, "r12b"))
+		return R12B;
+	else if (!strcmp(str, "r13b"))
+		return R13B;
+	else if (!strcmp(str, "r14b"))
+		return R14B;
+	else if (!strcmp(str, "r15b"))
+		return R15B;
+
+	else if (!strcmp(str, "r8w"))
+		return R8W;
+	else if (!strcmp(str, "r9w"))
+		return R9W;
+	else if (!strcmp(str, "r10w"))
+		return R10W;
+	else if (!strcmp(str, "r11w"))
+		return R11W;
+	else if (!strcmp(str, "r12w"))
+		return R12W;
+	else if (!strcmp(str, "r13w"))
+		return R13W;
+	else if (!strcmp(str, "r14w"))
+		return R14W;
+	else if (!strcmp(str, "r15w"))
+		return R15W;
+
+	else if (!strcmp(str, "r8d"))
+		return R8D;
+	else if (!strcmp(str, "r9d"))
+		return R9D;
+	else if (!strcmp(str, "r10d"))
+		return R10D;
+	else if (!strcmp(str, "r11d"))
+		return R11D;
+	else if (!strcmp(str, "r12d"))
+		return R12D;
+	else if (!strcmp(str, "r13d"))
+		return R13D;
+	else if (!strcmp(str, "r14d"))
+		return R14D;
+	else if (!strcmp(str, "r15d"))
+		return R15D;
+
+	else if (!strcmp(str, "rax"))
+		return RAX;
+	else if (!strcmp(str, "rcx"))
+		return RCX;
+	else if (!strcmp(str, "rdx"))
+		return RDX;
+	else if (!strcmp(str, "rbx"))
+		return RBX;
+	else if (!strcmp(str, "rsp"))
+		return RSP;
+	else if (!strcmp(str, "rbp"))
+		return RBP;
+	else if (!strcmp(str, "rsi"))
+		return RSI;
+	else if (!strcmp(str, "rdi"))
+		return RDI;
+
+	else if (!strcmp(str, "r8"))
+		return R8;
+	else if (!strcmp(str, "r9"))
+		return R9;
+	else if (!strcmp(str, "r10"))
+		return R10;
+	else if (!strcmp(str, "r11"))
+		return R11;
+	else if (!strcmp(str, "r12"))
+		return R12;
+	else if (!strcmp(str, "r13"))
+		return R13;
+	else if (!strcmp(str, "r14"))
+		return R14;
+	else if (!strcmp(str, "r15"))
+		return R15;
+	
+	else if (!strcmp(str, "xmm8"))
+		return XMM8;
+	else if (!strcmp(str, "xmm9"))
+		return XMM9;
+	else if (!strcmp(str, "xmm10"))
+		return XMM10;
+	else if (!strcmp(str, "xmm11"))
+		return XMM11;
+	else if (!strcmp(str, "xmm12"))
+		return XMM12;
+	else if (!strcmp(str, "xmm13"))
+		return XMM13;
+	else if (!strcmp(str, "xmm14"))
+		return XMM14;
+	else if (!strcmp(str, "xmm15"))
+		return XMM15;
+#endif
 
 	return Register_t::None;
 }

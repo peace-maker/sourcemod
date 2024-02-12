@@ -151,11 +151,13 @@ void DHooks::SDK_OnUnload()
 
 bool DHooks::SDK_OnMetamodLoad(ISmmAPI *ismm, char *error, size_t maxlength, bool late)
 {
+#if defined(KE_ARCH_X86)
 	if(!SetupHookManager(ismm))
 	{
 		snprintf(error, maxlength, "Failed to get IHookManagerAutoGen iface");	
 		return false;
 	}
+#endif
 	return true;
 }
 

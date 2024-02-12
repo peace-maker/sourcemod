@@ -60,8 +60,7 @@ enum Register_t
 	DL,
 	BL,
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	SPL,
 	BPL,
 	SIL,
@@ -74,7 +73,7 @@ enum Register_t
 	R13B,
 	R14B,
 	R15B,
-	*/
+#endif
 
 	AH,
 	CH,
@@ -93,8 +92,7 @@ enum Register_t
 	SI,
 	DI,
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	R8W,
 	R9W,
 	R10W,
@@ -103,7 +101,7 @@ enum Register_t
 	R13W,
 	R14W,
 	R15W,
-	*/
+#endif
 
 	// ========================================================================
 	// >> 32-bit General purpose registers
@@ -117,8 +115,7 @@ enum Register_t
 	ESI,
 	EDI,
 	
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	R8D,
 	R9D,
 	R10D,
@@ -127,13 +124,10 @@ enum Register_t
 	R13D,
 	R14D,
 	R15D,
-	*/
 	
 	// ========================================================================
 	// >> 64-bit General purpose registers
 	// ========================================================================
-	// 64-bit mode only
-	/*
 	RAX,
 	RCX,
 	RDX,
@@ -142,10 +136,8 @@ enum Register_t
 	RBP,
 	RSI,
 	RDI,
-	*/
 
 	// 64-bit mode only
-	/*
 	R8,
 	R9,
 	R10,
@@ -154,7 +146,7 @@ enum Register_t
 	R13,
 	R14,
 	R15,
-	*/
+#endif
 
 	// ========================================================================
 	// >> 64-bit MM (MMX) registers
@@ -180,8 +172,7 @@ enum Register_t
 	XMM6,
 	XMM7,
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	XMM8,
 	XMM9,
 	XMM10,
@@ -190,7 +181,7 @@ enum Register_t
 	XMM13,
 	XMM14,
 	XMM15,
-	*/
+#endif
 
 	// ========================================================================
 	// >> 16-bit Segment registers
@@ -304,8 +295,7 @@ public:
 	CRegister* m_dl;
 	CRegister* m_bl;
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	CRegister* m_spl;
 	CRegister* m_bpl;
 	CRegister* m_sil;
@@ -318,7 +308,7 @@ public:
 	CRegister* m_r13b;
 	CRegister* m_r14b;
 	CRegister* m_r15b;
-	*/
+#endif
 
 	CRegister* m_ah;
 	CRegister* m_ch;
@@ -337,8 +327,7 @@ public:
 	CRegister* m_si;
 	CRegister* m_di;
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	CRegister* m_r8w;
 	CRegister* m_r9w;
 	CRegister* m_r10w;
@@ -347,7 +336,7 @@ public:
 	CRegister* m_r13w;
 	CRegister* m_r14w;
 	CRegister* m_r15w;
-	*/
+#endif
 
 	// ========================================================================
 	// >> 32-bit General purpose registers
@@ -361,8 +350,7 @@ public:
 	CRegister* m_esi;
 	CRegister* m_edi;
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	CRegister* m_r8d;
 	CRegister* m_r9d;
 	CRegister* m_r10d;
@@ -371,13 +359,10 @@ public:
 	CRegister* m_r13d;
 	CRegister* m_r14d;
 	CRegister* m_r15d;
-	*/
 
 	// ========================================================================
 	// >> 64-bit General purpose registers
 	// ========================================================================
-	// 64-bit mode only
-	/*
 	CRegister* m_rax;
 	CRegister* m_rcx;
 	CRegister* m_rdx;
@@ -386,10 +371,7 @@ public:
 	CRegister* m_rbp;
 	CRegister* m_rsi;
 	CRegister* m_rdi;
-	*/
 	
-	// 64-bit mode only
-	/*
 	CRegister* m_r8;
 	CRegister* m_r9;
 	CRegister* m_r10;
@@ -398,7 +380,7 @@ public:
 	CRegister* m_r13;
 	CRegister* m_r14;
 	CRegister* m_r15;
-	*/
+#endif
 
 	// ========================================================================
 	// >> 64-bit MM (MMX) registers
@@ -424,8 +406,7 @@ public:
 	CRegister* m_xmm6;
 	CRegister* m_xmm7;
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	CRegister* m_xmm8;
 	CRegister* m_xmm9;
 	CRegister* m_xmm10;
@@ -434,7 +415,7 @@ public:
 	CRegister* m_xmm13;
 	CRegister* m_xmm14;
 	CRegister* m_xmm15;
-	*/
+#endif
 
 	// ========================================================================
 	// >> 16-bit Segment registers

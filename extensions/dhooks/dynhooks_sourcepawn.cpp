@@ -34,25 +34,39 @@
 #include <memory>
 
 #ifdef KE_WINDOWS
-#include "conventions/x86MsCdecl.h"
-#include "conventions/x86MsThiscall.h"
-#include "conventions/x86MsStdcall.h"
-#include "conventions/x86MsFastcall.h"
-typedef x86MsCdecl x86DetourCdecl;
-typedef x86MsThiscall x86DetourThisCall;
-typedef x86MsStdcall x86DetourStdCall;
-typedef x86MsFastcall x86DetourFastCall;
+	#ifdef KE_ARCH_X86
+	#include "conventions/x86MsCdecl.h"
+	#include "conventions/x86MsThiscall.h"
+	#include "conventions/x86MsStdcall.h"
+	#include "conventions/x86MsFastcall.h"
+	typedef x86MsCdecl x86DetourCdecl;
+	typedef x86MsThiscall x86DetourThisCall;
+	typedef x86MsStdcall x86DetourStdCall;
+	typedef x86MsFastcall x86DetourFastCall;
+	#else
+	#error "Unsupported architecture."
+	#endif
 #elif defined KE_LINUX
-#include "conventions/x86GccCdecl.h"
-#include "conventions/x86GccThiscall.h"
-#include "conventions/x86MsStdcall.h"
-#include "conventions/x86MsFastcall.h"
-typedef x86GccCdecl x86DetourCdecl;
-typedef x86GccThiscall x86DetourThisCall;
-// Uhm, stdcall on linux?
-typedef x86MsStdcall x86DetourStdCall;
-// Uhumm, fastcall on linux?
-typedef x86MsFastcall x86DetourFastCall;
+	#ifdef KE_ARCH_X86
+	#include "conventions/x86GccCdecl.h"
+	#include "conventions/x86GccThiscall.h"
+	#include "conventions/x86MsStdcall.h"
+	#include "conventions/x86MsFastcall.h"
+	typedef x86GccCdecl x86DetourCdecl;
+	typedef x86GccThiscall x86DetourThisCall;
+	// Uhm, stdcall on linux?
+	typedef x86MsStdcall x86DetourStdCall;
+	// Uhumm, fastcall on linux?
+	typedef x86MsFastcall x86DetourFastCall;
+	#elif defined KE_ARCH_X64
+	#include "conventions/x64SystemV.h"
+	typedef x64SystemV x86DetourCdecl;
+	typedef x64SystemV x86DetourThisCall;
+	typedef x64SystemV x86DetourStdCall;
+	typedef x64SystemV x86DetourFastCall;
+	#else
+	#error "Unsupported architecture."
+	#endif
 #else
 #error "Unsupported platform."
 #endif

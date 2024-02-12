@@ -43,8 +43,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_dl = CreateRegister(registers, DL, 1);
 	m_bl = CreateRegister(registers, BL, 1);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	m_spl = CreateRegister(registers, SPL, 1);
 	m_bpl = CreateRegister(registers, BPL, 1);
 	m_sil = CreateRegister(registers, SIL, 1);
@@ -57,7 +56,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_r13b = CreateRegister(registers, R13B, 1);
 	m_r14b = CreateRegister(registers, R14B, 1);
 	m_r15b = CreateRegister(registers, R15B, 1);
-	*/
+#endif
 
 	m_ah = CreateRegister(registers, AH, 1);
 	m_ch = CreateRegister(registers, CH, 1);
@@ -76,8 +75,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_si = CreateRegister(registers, SI, 2);
 	m_di = CreateRegister(registers, DI, 2);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	m_r8w = CreateRegister(registers, R8W, 2);
 	m_r9w = CreateRegister(registers, R9W, 2);
 	m_r10w = CreateRegister(registers, R10W, 2);
@@ -86,7 +84,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_r13w = CreateRegister(registers, R13W, 2);
 	m_r14w = CreateRegister(registers, R14W, 2);
 	m_r15w = CreateRegister(registers, R14W, 2);
-	*/
+#endif
 
 	// ========================================================================
 	// >> 32-bit General purpose registers
@@ -100,8 +98,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_esi = CreateRegister(registers, ESI, 4);
 	m_edi = CreateRegister(registers, EDI, 4);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	m_r8d = CreateRegister(registers, R8D, 4);
 	m_r9d = CreateRegister(registers, R9D, 4);
 	m_r10d = CreateRegister(registers, R10D, 4);
@@ -110,13 +107,11 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_r13d = CreateRegister(registers, R13D, 4);
 	m_r14d = CreateRegister(registers, R14D, 4);
 	m_r15d = CreateRegister(registers, R15D, 4);
-	*/
+
 
 	// ========================================================================
 	// >> 64-bit General purpose registers
 	// ========================================================================
-	// 64-bit mode only
-	/*
 	m_rax = CreateRegister(registers, RAX, 8);
 	m_rcx = CreateRegister(registers, RCX, 8);
 	m_rdx = CreateRegister(registers, RDX, 8);
@@ -125,10 +120,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_rbp = CreateRegister(registers, RBP, 8);
 	m_rsi = CreateRegister(registers, RSI, 8);
 	m_rdi = CreateRegister(registers, RDI, 8);
-	*/
-	
-	// 64-bit mode only
-	/*
+
 	m_r8 = CreateRegister(registers, R8, 8);
 	m_r9 = CreateRegister(registers, R9, 8);
 	m_r10 = CreateRegister(registers, R10, 8);
@@ -137,7 +129,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_r13 = CreateRegister(registers, R13, 8);
 	m_r14 = CreateRegister(registers, R14, 8);
 	m_r15 = CreateRegister(registers, R15, 8);
-	*/
+#endif
 
 	// ========================================================================
 	// >> 64-bit MM (MMX) registers
@@ -164,8 +156,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_xmm6 = CreateRegister(registers, XMM6, 16, 16);
 	m_xmm7 = CreateRegister(registers, XMM7, 16, 16);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	m_xmm8 = CreateRegister(registers, XMM8, 16);
 	m_xmm9 = CreateRegister(registers, XMM9, 16);
 	m_xmm10 = CreateRegister(registers, XMM10, 16);
@@ -174,7 +165,7 @@ CRegisters::CRegisters(std::vector<Register_t> registers)
 	m_xmm13 = CreateRegister(registers, XMM13, 16);
 	m_xmm14 = CreateRegister(registers, XMM14, 16);
 	m_xmm15 = CreateRegister(registers, XMM15, 16);
-	*/
+#endif
 
 	// ========================================================================
 	// >> 16-bit Segment registers
@@ -209,8 +200,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_dl);
 	DeleteRegister(m_bl);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	DeleteRegister(m_spl);
 	DeleteRegister(m_bpl);
 	DeleteRegister(m_sil);
@@ -223,7 +213,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_r13b);
 	DeleteRegister(m_r14b);
 	DeleteRegister(m_r15b);
-	*/
+#endif
 
 	DeleteRegister(m_ah);
 	DeleteRegister(m_ch);
@@ -242,8 +232,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_si);
 	DeleteRegister(m_di);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	DeleteRegister(m_r8w);
 	DeleteRegister(m_r9w);
 	DeleteRegister(m_r10w);
@@ -252,7 +241,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_r13w);
 	DeleteRegister(m_r14w);
 	DeleteRegister(m_r15w);
-	*/
+#endif
 
 	// ========================================================================
 	// >> 32-bit General purpose registers
@@ -266,8 +255,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_esi);
 	DeleteRegister(m_edi);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	DeleteRegister(m_r8d);
 	DeleteRegister(m_r9d);
 	DeleteRegister(m_r10d);
@@ -276,13 +264,10 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_r13d);
 	DeleteRegister(m_r14d);
 	DeleteRegister(m_r15d);
-	*/
 
 	// ========================================================================
 	// >> 64-bit General purpose registers
 	// ========================================================================
-	// 64-bit mode only
-	/*
 	DeleteRegister(m_rax);
 	DeleteRegister(m_rcx);
 	DeleteRegister(m_rdx);
@@ -291,10 +276,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_rbp);
 	DeleteRegister(m_rsi);
 	DeleteRegister(m_rdi);
-	*/
 	
-	// 64-bit mode only
-	/*
 	DeleteRegister(m_r8);
 	DeleteRegister(m_r9);
 	DeleteRegister(m_r10);
@@ -303,7 +285,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_r13);
 	DeleteRegister(m_r14);
 	DeleteRegister(m_r15);
-	*/
+#endif
 
 	// ========================================================================
 	// >> 64-bit MM (MMX) registers
@@ -329,8 +311,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_xmm6);
 	DeleteRegister(m_xmm7);
 
-	// 64-bit mode only
-	/*
+#ifdef KE_ARCH_X64
 	DeleteRegister(m_xmm8);
 	DeleteRegister(m_xmm9);
 	DeleteRegister(m_xmm10);
@@ -339,7 +320,7 @@ CRegisters::~CRegisters()
 	DeleteRegister(m_xmm13);
 	DeleteRegister(m_xmm14);
 	DeleteRegister(m_xmm15);
-	*/
+#endif
 
 	// ========================================================================
 	// >> 2-bit Segment registers
@@ -396,6 +377,34 @@ CRegister* CRegisters::GetRegister(Register_t reg)
 		return m_dl;
 	case BL:
 		return m_bl;
+
+#ifdef KE_ARCH_X64
+	case SPL:
+		return m_spl;
+	case BPL:
+		return m_bpl;
+	case SIL:
+		return m_sil;
+	case DIL:
+		return m_dil;
+	case R8B:
+		return m_r8b;
+	case R9B:
+		return m_r9b;
+	case R10B:
+		return m_r10b;
+	case R11B:
+		return m_r11b;
+	case R12B:
+		return m_r12b;
+	case R13B:
+		return m_r13b;
+	case R14B:
+		return m_r14b;
+	case R15B:
+		return m_r15b;
+#endif
+
 	case AH:
 		return m_ah;
 	case CH:
@@ -422,6 +431,25 @@ CRegister* CRegisters::GetRegister(Register_t reg)
 	case DI:
 		return m_di;
 
+#ifdef KE_ARCH_X64
+	case R8W:
+		return m_r8w;
+	case R9W:
+		return m_r9w;
+	case R10W:
+		return m_r10w;
+	case R11W:
+		return m_r11w;
+	case R12W:
+		return m_r12w;
+	case R13W:
+		return m_r13w;
+	case R14W:
+		return m_r14w;
+	case R15W:
+		return m_r15w;
+#endif
+
 	case EAX:
 		return m_eax;
 	case ECX:
@@ -438,6 +466,59 @@ CRegister* CRegisters::GetRegister(Register_t reg)
 		return m_esi;
 	case EDI:
 		return m_edi;
+	
+#ifdef KE_ARCH_X64
+	case R8D:
+		return m_r8d;
+	case R9D:
+		return m_r9d;
+	case R10D:
+		return m_r10d;
+	case R11D:
+		return m_r11d;
+	case R12D:
+		return m_r12d;
+	case R13D:
+		return m_r13d;
+	case R14D:
+		return m_r14d;
+	case R15D:
+		return m_r15d;
+
+	case RAX:
+		return m_rax;
+	case RCX:
+		return m_rcx;
+	case RDX:
+		return m_rdx;
+	case RBX:
+		return m_rbx;
+	case RSP:
+		return m_rsp;
+	case RBP:
+		return m_rbp;
+	case RSI:
+		return m_rsi;
+	case RDI:
+		return m_rdi;
+
+	case R8:
+		return m_r8;
+	case R9:
+		return m_r9;
+	case R10:
+		return m_r10;
+	case R11:
+		return m_r11;
+	case R12:
+		return m_r12;
+	case R13:
+		return m_r13;
+	case R14:
+		return m_r14;
+	case R15:
+		return m_r15;
+#endif
 
 	case MM0:
 		return m_mm0;
@@ -472,6 +553,25 @@ CRegister* CRegisters::GetRegister(Register_t reg)
 		return m_xmm6;
 	case XMM7:
 		return m_xmm7;
+
+#ifdef KE_ARCH_X64
+	case XMM8:
+		return m_xmm8;
+	case XMM9:
+		return m_xmm9;
+	case XMM10:
+		return m_xmm10;
+	case XMM11:
+		return m_xmm11;
+	case XMM12:
+		return m_xmm12;
+	case XMM13:
+		return m_xmm13;
+	case XMM14:
+		return m_xmm14;
+	case XMM15:
+		return m_xmm15;
+#endif
 
 	case CS:
 		return m_cs;

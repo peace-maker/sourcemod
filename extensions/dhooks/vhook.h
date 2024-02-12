@@ -280,22 +280,7 @@ class DHooksManager
 {
 public:
 	DHooksManager(HookSetup *setup, void *iface, IPluginFunction *remove_callback, IPluginFunction *plugincb, bool post);
-	~DHooksManager()
-	{
-		if(this->hookid)
-		{
-			g_SHPtr->RemoveHookByID(this->hookid);
-			if(this->remove_callback)
-			{
-				this->remove_callback->PushCell(this->hookid);
-				this->remove_callback->Execute(NULL);
-			}
-			if(this->pManager)
-			{
-				g_pHookManager->ReleaseHookMan(this->pManager);
-			}
-		}
-	}
+	~DHooksManager();
 public:
 	intptr_t addr;
 	int hookid;

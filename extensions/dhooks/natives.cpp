@@ -122,7 +122,12 @@ cell_t Native_CreateHook(IPluginContext *pContext, const cell_t *params)
 //native Handle:DHookCreateDetour(Address:funcaddr, CallingConvention:callConv, ReturnType:returntype, ThisPointerType:thistype);
 cell_t Native_CreateDetour(IPluginContext *pContext, const cell_t *params)
 {
-	HookSetup *setup = new HookSetup((ReturnType)params[3], PASSFLAG_BYVAL, (CallingConvention)params[2], (ThisPointerType)params[4], (void *)params[1]);
+#ifdef KE_ARCH_X86
+	void *addr = reinterpret_cast<void*>(params[1]);
+#else
+	void *addr = smutils->FromPseudoAddress(params[1]);
+#endif
+	HookSetup *setup = new HookSetup((ReturnType)params[3], PASSFLAG_BYVAL, (CallingConvention)params[2], (ThisPointerType)params[4], addr);
 
 	Handle_t hndl = handlesys->CreateHandle(g_HookSetupHandle, setup, pContext->GetIdentity(), myself->GetIdentity(), NULL);
 
@@ -418,6 +423,7 @@ cell_t Native_DisableDetour(IPluginContext *pContext, const cell_t *params)
 
 cell_t HookEntityImpl(IPluginContext *pContext, const cell_t *params, uint32_t callbackIndex, uint32_t removalcbIndex)
 {
+#ifdef KE_ARCH_X86
 	HookSetup *setup;
 
 	if(!GetHandleIfValidOrError(g_HookSetupHandle, (void **)&setup, pContext, params[1]))
@@ -470,6 +476,9 @@ cell_t HookEntityImpl(IPluginContext *pContext, const cell_t *params, uint32_t c
 	g_pHooks.push_back(manager);
 
 	return manager->hookid;
+#else
+	return pContext->ThrowNativeError("Virtual hooks are not supported on this architecture.");
+#endif
 }
 
 // native DHookEntity(Handle:setup, bool:post, entity, DHookRemovalCB:removalcb, DHookCallback:callback = INVALID_FUNCTION); // Both callbacks are optional
@@ -485,6 +494,7 @@ cell_t Native_HookEntity_Methodmap(IPluginContext *pContext, const cell_t *param
 
 cell_t HookGamerulesImpl(IPluginContext *pContext, const cell_t *params, uint32_t callbackIndex, uint32_t removalcbIndex)
 {
+#ifdef KE_ARCH_X86
 	HookSetup *setup;
 
 	if(!GetHandleIfValidOrError(g_HookSetupHandle, (void **)&setup, pContext, params[1]))
@@ -537,6 +547,9 @@ cell_t HookGamerulesImpl(IPluginContext *pContext, const cell_t *params, uint32_
 	g_pHooks.push_back(manager);
 
 	return manager->hookid;
+#else
+	return pContext->ThrowNativeError("Virtual hooks are not supported on this architecture.");
+#endif
 }
 
 // native DHookGamerules(Handle:setup, bool:post, DHookRemovalCB:removalcb, DHookCallback:callback = INVALID_FUNCTION); // Both callbacks are optional
@@ -553,6 +566,7 @@ cell_t Native_HookGamerules_Methodmap(IPluginContext *pContext, const cell_t *pa
 
 cell_t HookRawImpl(IPluginContext *pContext, const cell_t *params, int callbackIndex, int removalcbIndex)
 {
+#ifdef KE_ARCH_X86
 	HookSetup *setup;
 
 	if(!GetHandleIfValidOrError(g_HookSetupHandle, (void **)&setup, pContext, params[1]))
@@ -581,7 +595,11 @@ cell_t HookRawImpl(IPluginContext *pContext, const cell_t *params, int callbackI
 	if (removalcbIndex > 0)
 		removalcb = pContext->GetFunctionById(params[removalcbIndex]);
 
-	void *iface = (void *)(params[3]);
+	#ifdef KE_ARCH_X86
+		void *iface = reinterpret_cast<void*>(params[3]);
+	#else
+		void *iface = smutils->FromPseudoAddress(params[3]);
+	#endif
 
 	for(int i = g_pHooks.size() -1; i >= 0; i--)
 	{
@@ -608,6 +626,9 @@ cell_t HookRawImpl(IPluginContext *pContext, const cell_t *params, int callbackI
 	g_pHooks.push_back(manager);
 
 	return manager->hookid;
+#else
+	return pContext->ThrowNativeError("Virtual hooks are not supported on this architecture.");
+#endif
 }
 
 // DHookRaw(Handle:setup, bool:post, Address:addr, DHookRemovalCB:removalcb, DHookCallback:callback = INVALID_FUNCTION); // Both callbacks are optional

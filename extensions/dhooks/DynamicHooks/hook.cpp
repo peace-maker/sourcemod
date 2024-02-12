@@ -36,7 +36,7 @@
 // ============================================================================
 #include "hook.h"
 #include <asm/asm.h>
-#include <macro-assembler-x86.h>
+#include <macro-assembler.h>
 #include "extension.h"
 #include <jit/jit_helpers.h>
 #include <CDetour/detourhelpers.h>
@@ -229,6 +229,7 @@ void __cdecl CHook::SetReturnAddress(void* pRetAddr, void* pESP)
 	i->value.push_back(pRetAddr);
 }
 
+#if defined(KE_ARCH_X86)
 void* CHook::CreateBridge()
 {
 	sp::MacroAssembler masm;
@@ -502,3 +503,353 @@ void CHook::Write_RestoreRegisters(sp::MacroAssembler& masm, HookType_t type)
 		}
 	}
 }
+
+#elif defined(KE_ARCH_X64)
+
+void* CHook::CreateBridge()
+{
+	sp::MacroAssembler masm;
+	Label label_supercede;
+
+	// Write a redirect to the post-hook code
+	Write_ModifyReturnAddress(masm);
+
+	// Call the pre-hook handler and jump to label_supercede if ReturnAction_Supercede was returned
+	Write_CallHandler(masm, HOOKTYPE_PRE);
+	masm.cmpl(rax, ReturnAction_Supercede);
+	
+	// Restore the previously saved registers, so any changes will be applied
+	Write_RestoreRegisters(masm, HOOKTYPE_PRE);
+
+	masm.j(equal, &label_supercede);
+
+	// Jump to the trampoline
+	masm.jmp(AddressValue(m_pTrampoline));
+
+	// This code will be executed if a pre-hook returns ReturnAction_Supercede
+	masm.bind(&label_supercede);
+
+	// Finally, return to the caller
+	// This will still call post hooks, but will skip the original function.
+	masm.ret(m_pCallingConvention->GetPopSize());
+
+	void *base = smutils->GetScriptingEngine()->AllocatePageMemory(masm.length());
+	masm.emitToExecutableMemory(base);
+	return base;
+}
+
+void CHook::Write_ModifyReturnAddress(sp::MacroAssembler& masm)
+{
+	// Save scratch registers that are used by SetReturnAddress
+	static void* pRAX = NULL;
+	static void* pRCX = NULL;
+	static void* pRDX = NULL;
+	static void* pRDI = NULL;
+	static void* pRSI = NULL;
+	static void* pR8 = NULL;
+	static void* pR9 = NULL;
+	masm.movq(AddressOperand(&pRAX), rax);
+	masm.movq(rax, r8);
+	masm.movq(AddressOperand(&pR8), rax);
+	masm.movq(AddressOperand(&pRCX), rcx);
+	masm.movq(AddressOperand(&pRDX), rdx);
+	masm.movq(AddressOperand(&pRDI), rdi);
+	masm.movq(AddressOperand(&pRSI), rsi);
+	masm.movq(AddressOperand(&pRSI), rsi);
+	masm.movq(AddressOperand(&pR9), r9);
+
+	// Store the return address in eax
+	masm.movq(rax, Operand(rsp, 0));
+	
+	// Save the original return address by using the current esp as the key.
+	// This should be unique until we have returned to the original caller.
+	void (__cdecl CHook::*SetReturnAddress)(void*, void*) = &CHook::SetReturnAddress;
+	masm.movq(ArgReg2, rsp);
+	masm.movq(ArgReg1, rax);
+	masm.movq(ArgReg0, AddressValue(this));
+	masm.call(AddressValue((void *&)SetReturnAddress));
+	
+	// Restore scratch registers
+	masm.movq(rcx, AddressOperand(&pRCX));
+	masm.movq(rdx, AddressOperand(&pRDX));
+	masm.movq(rdi, AddressOperand(&pRDI));
+	masm.movq(rsi, AddressOperand(&pRSI));
+	masm.movq(r9, AddressOperand(&pR9));
+
+	// Override the return address. This is a redirect to our post-hook code
+	m_pNewRetAddr = CreatePostCallback();
+	masm.movq(r8, AddressValue(m_pNewRetAddr));
+	masm.movq(Operand(rsp, 0), r8);
+
+	// Restore r8 and rax
+	masm.movq(rax, AddressOperand(&pR8));
+	masm.movq(r8, rax);
+	masm.movq(rax, AddressOperand(&pRAX));
+}
+
+void* CHook::CreatePostCallback()
+{
+	sp::MacroAssembler masm;
+
+	int32_t iPopSize = m_pCallingConvention->GetPopSize();
+
+	// Subtract the previously added bytes (stack size + return address), so
+	// that we can access the arguments again
+	masm.subq(rsp, iPopSize+8);
+
+	// Call the post-hook handler
+	Write_CallHandler(masm, HOOKTYPE_POST);
+
+	// Restore the previously saved registers, so any changes will be applied
+	Write_RestoreRegisters(masm, HOOKTYPE_POST);
+
+	// Save scratch registers that are used by GetReturnAddress
+	static void* pRAX = NULL;
+	static void* pRCX = NULL;
+	static void* pRDX = NULL;
+	static void* pRDI = NULL;
+	static void* pRSI = NULL;
+	static void* pR8 = NULL;
+	static void* pR9 = NULL;
+	masm.movq(AddressOperand(&pRAX), rax);
+	masm.movq(rax, r8);
+	masm.movq(AddressOperand(&pR8), rax);
+	masm.movq(AddressOperand(&pRCX), rcx);
+	masm.movq(AddressOperand(&pRDX), rdx);
+	masm.movq(AddressOperand(&pRDI), rdi);
+	masm.movq(AddressOperand(&pRSI), rsi);
+	masm.movq(AddressOperand(&pRSI), rsi);
+	masm.movq(AddressOperand(&pR9), r9);
+	
+	// Get the original return address
+	void* (__cdecl CHook::*GetReturnAddress)(void*) = &CHook::GetReturnAddress;
+	masm.movq(ArgReg1, rsp);
+	masm.movq(ArgReg0, AddressValue(this));
+	masm.call(AddressValue((void *&)GetReturnAddress));
+
+	// Save the original return address
+	static void* pRetAddr = NULL;
+	masm.movq(AddressOperand(&pRetAddr), rax);
+	
+	// Restore scratch registers
+	masm.movq(rcx, AddressOperand(&pRCX));
+	masm.movq(rdx, AddressOperand(&pRDX));
+	masm.movq(rdi, AddressOperand(&pRDI));
+	masm.movq(rsi, AddressOperand(&pRSI));
+	masm.movq(r9, AddressOperand(&pR9));
+	masm.movq(rax, AddressOperand(&pR8));
+	masm.movq(r8, rax);
+	masm.movq(rax, AddressOperand(&pRAX));
+
+	// Add the bytes again to the stack (stack size + return address), so we
+	// don't corrupt the stack.
+	masm.addq(rsp, iPopSize+sizeof(void*));
+
+	// Jump to the original return address
+	masm.movq(r8, AddressOperand(&pRetAddr));
+	masm.jmp(r8);
+
+	// Generate the code
+	void *base = smutils->GetScriptingEngine()->AllocatePageMemory(masm.length());
+	masm.emitToExecutableMemory(base);
+	return base;
+}
+
+void CHook::Write_CallHandler(sp::MacroAssembler& masm, HookType_t type)
+{
+	ReturnAction_t (__cdecl CHook::*HookHandler)(HookType_t) = &CHook::HookHandler;
+
+	// Save the registers so that we can access them in our handlers
+	Write_SaveRegisters(masm, type);
+
+	// Align the stack to 16 bytes.
+	masm.subq(rsp, 8);
+
+	// Call the global hook handler
+	masm.movq(ArgReg1, type);
+	masm.movq(ArgReg0, AddressValue(this));
+	masm.call(AddressValue((void *&)HookHandler));
+	masm.addq(rsp, 8);
+}
+
+void CHook::Write_SaveRegisters(sp::MacroAssembler& masm, HookType_t type)
+{
+	std::vector<Register_t> vecRegistersToSave = m_pCallingConvention->GetRegisters();
+	for(size_t i = 0; i < vecRegistersToSave.size(); i++)
+	{
+		switch(vecRegistersToSave[i])
+		{
+		// ========================================================================
+		// >> 8-bit General purpose registers
+		// ========================================================================
+		// case AL: masm.movl(AddressOperand(m_pRegisters->m_al->m_pAddress), r8_al); break;
+		// case CL: masm.movl(AddressOperand(m_pRegisters->m_cl->m_pAddress), r8_cl); break;
+		// case DL: masm.movl(AddressOperand(m_pRegisters->m_dl->m_pAddress), r8_dl); break;
+		// case BL: masm.movl(AddressOperand(m_pRegisters->m_bl->m_pAddress), r8_bl); break;
+		// case AH: masm.movl(AddressOperand(m_pRegisters->m_ah->m_pAddress), r8_ah); break;
+		// case CH: masm.movl(AddressOperand(m_pRegisters->m_ch->m_pAddress), r8_ch); break;
+		// case DH: masm.movl(AddressOperand(m_pRegisters->m_dh->m_pAddress), r8_dh); break;
+		// case BH: masm.movl(AddressOperand(m_pRegisters->m_bh->m_pAddress), r8_bh); break;
+
+		// ========================================================================
+		// >> 32-bit General purpose registers
+		// ========================================================================
+		// case EAX: masm.movl(AddressOperand(m_pRegisters->m_eax->m_pAddress), eax); break;
+		// case ECX: masm.movl(AddressOperand(m_pRegisters->m_ecx->m_pAddress), ecx); break;
+		// case EDX: masm.movl(AddressOperand(m_pRegisters->m_edx->m_pAddress), edx); break;
+		// case EBX: masm.movl(AddressOperand(m_pRegisters->m_ebx->m_pAddress), ebx); break;
+		// case ESP: masm.movl(AddressOperand(m_pRegisters->m_esp->m_pAddress), esp); break;
+		// case EBP: masm.movl(AddressOperand(m_pRegisters->m_ebp->m_pAddress), ebp); break;
+		// case ESI: masm.movl(AddressOperand(m_pRegisters->m_esi->m_pAddress), esi); break;
+		// case EDI: masm.movl(AddressOperand(m_pRegisters->m_edi->m_pAddress), edi); break;
+
+		// ========================================================================
+		// >> 64-bit General purpose registers
+		// ========================================================================
+		case RAX: masm.movq(AddressOperand(m_pRegisters->m_rax->m_pAddress), rax); break;
+		case RCX: masm.movq(AddressOperand(m_pRegisters->m_rcx->m_pAddress), rcx); break;
+		case RDX: masm.movq(AddressOperand(m_pRegisters->m_rdx->m_pAddress), rdx); break;
+		case RBX: masm.movq(AddressOperand(m_pRegisters->m_rbx->m_pAddress), rbx); break;
+		case RSP: masm.movq(AddressOperand(m_pRegisters->m_rsp->m_pAddress), rsp); break;
+		case RBP: masm.movq(AddressOperand(m_pRegisters->m_rbp->m_pAddress), rbp); break;
+		case RSI: masm.movq(AddressOperand(m_pRegisters->m_rsi->m_pAddress), rsi); break;
+		case RDI: masm.movq(AddressOperand(m_pRegisters->m_rdi->m_pAddress), rdi); break;
+
+		// ========================================================================
+		// >> 128-bit XMM registers
+		// ========================================================================
+		// TODO: Also provide movups?
+		// case XMM0: masm.movaps(AddressOperand(m_pRegisters->m_xmm0->m_pAddress), xmm0); break;
+		// case XMM1: masm.movaps(AddressOperand(m_pRegisters->m_xmm1->m_pAddress), xmm1); break;
+		// case XMM2: masm.movaps(AddressOperand(m_pRegisters->m_xmm2->m_pAddress), xmm2); break;
+		// case XMM3: masm.movaps(AddressOperand(m_pRegisters->m_xmm3->m_pAddress), xmm3); break;
+		// case XMM4: masm.movaps(AddressOperand(m_pRegisters->m_xmm4->m_pAddress), xmm4); break;
+		// case XMM5: masm.movaps(AddressOperand(m_pRegisters->m_xmm5->m_pAddress), xmm5); break;
+		// case XMM6: masm.movaps(AddressOperand(m_pRegisters->m_xmm6->m_pAddress), xmm6); break;
+		// case XMM7: masm.movaps(AddressOperand(m_pRegisters->m_xmm7->m_pAddress), xmm7); break;
+		// case XMM8: masm.movaps(AddressOperand(m_pRegisters->m_xmm8->m_pAddress), xmm8); break;
+		// case XMM9: masm.movaps(AddressOperand(m_pRegisters->m_xmm9->m_pAddress), xmm9); break;
+		// case XMM10: masm.movaps(AddressOperand(m_pRegisters->m_xmm10->m_pAddress), xmm10); break;
+		// case XMM11: masm.movaps(AddressOperand(m_pRegisters->m_xmm11->m_pAddress), xmm11); break;
+		// case XMM12: masm.movaps(AddressOperand(m_pRegisters->m_xmm12->m_pAddress), xmm12); break;
+		// case XMM13: masm.movaps(AddressOperand(m_pRegisters->m_xmm13->m_pAddress), xmm13); break;
+		// case XMM14: masm.movaps(AddressOperand(m_pRegisters->m_xmm14->m_pAddress), xmm14); break;
+		// case XMM15: masm.movaps(AddressOperand(m_pRegisters->m_xmm15->m_pAddress), xmm15); break;
+
+
+		// ========================================================================
+		// >> 80-bit FPU registers
+		// ========================================================================
+		// case ST0:
+		// 	// Don't mess with the FPU stack in a pre-hook. The float return is returned in st0,
+		// 	// so only load it in a post hook to avoid writing back NaN.
+		// 	if (type == HOOKTYPE_POST)
+		// 		masm.fst32(AddressOperand(m_pRegisters->m_st0->m_pAddress));
+		// 	break;
+		//case ST1: masm.movl(tword_ptr_abs(Ptr(m_pRegisters->m_st1->m_pAddress)), st1); break;
+		//case ST2: masm.movl(tword_ptr_abs(Ptr(m_pRegisters->m_st2->m_pAddress)), st2); break;
+		//case ST3: masm.movl(tword_ptr_abs(Ptr(m_pRegisters->m_st3->m_pAddress)), st3); break;
+		//case ST4: masm.movl(tword_ptr_abs(Ptr(m_pRegisters->m_st4->m_pAddress)), st4); break;
+		//case ST5: masm.movl(tword_ptr_abs(Ptr(m_pRegisters->m_st5->m_pAddress)), st5); break;
+		//case ST6: masm.movl(tword_ptr_abs(Ptr(m_pRegisters->m_st6->m_pAddress)), st6); break;
+		//case ST7: masm.movl(tword_ptr_abs(Ptr(m_pRegisters->m_st7->m_pAddress)), st7); break;
+
+		default: puts("Unsupported register.");
+		}
+	}
+}
+
+void CHook::Write_RestoreRegisters(sp::MacroAssembler& masm, HookType_t type)
+{
+	std::vector<Register_t> vecRegistersToSave = m_pCallingConvention->GetRegisters();
+	for (size_t i = 0; i < vecRegistersToSave.size(); i++)
+	{
+		switch (vecRegistersToSave[i])
+		{
+		// ========================================================================
+		// >> 8-bit General purpose registers
+		// ========================================================================
+		// case AL: masm.movl(r8_al, AddressOperand(m_pRegisters->m_al->m_pAddress)); break;
+		// case CL: masm.movl(r8_cl, AddressOperand(m_pRegisters->m_cl->m_pAddress)); break;
+		// case DL: masm.movl(r8_dl, AddressOperand(m_pRegisters->m_dl->m_pAddress)); break;
+		// case BL: masm.movl(r8_bl, AddressOperand(m_pRegisters->m_bl->m_pAddress)); break;
+		// case AH: masm.movl(r8_ah, AddressOperand(m_pRegisters->m_ah->m_pAddress)); break;
+		// case CH: masm.movl(r8_ch, AddressOperand(m_pRegisters->m_ch->m_pAddress)); break;
+		// case DH: masm.movl(r8_dh, AddressOperand(m_pRegisters->m_dh->m_pAddress)); break;
+		// case BH: masm.movl(r8_bh, AddressOperand(m_pRegisters->m_bh->m_pAddress)); break;
+
+		// ========================================================================
+		// >> 32-bit General purpose registers
+		// ========================================================================
+		// case EAX: masm.movl(eax, AddressOperand(m_pRegisters->m_eax->m_pAddress)); break;
+		// case ECX: masm.movl(ecx, AddressOperand(m_pRegisters->m_ecx->m_pAddress)); break;
+		// case EDX: masm.movl(edx, AddressOperand(m_pRegisters->m_edx->m_pAddress)); break;
+		// case EBX: masm.movl(ebx, AddressOperand(m_pRegisters->m_ebx->m_pAddress)); break;
+		// case ESP: masm.movl(esp, AddressOperand(m_pRegisters->m_esp->m_pAddress)); break;
+		// case EBP: masm.movl(ebp, AddressOperand(m_pRegisters->m_ebp->m_pAddress)); break;
+		// case ESI: masm.movl(esi, AddressOperand(m_pRegisters->m_esi->m_pAddress)); break;
+		// case EDI: masm.movl(edi, AddressOperand(m_pRegisters->m_edi->m_pAddress)); break;
+
+		// ========================================================================
+		// >> 64-bit General purpose registers
+		// ========================================================================
+		case RAX: masm.movq(rax, AddressOperand(m_pRegisters->m_rax->m_pAddress)); break;
+		case RCX: masm.movq(rcx, AddressOperand(m_pRegisters->m_rcx->m_pAddress)); break;
+		case RDX: masm.movq(rdx, AddressOperand(m_pRegisters->m_rdx->m_pAddress)); break;
+		case RBX: masm.movq(rbx, AddressOperand(m_pRegisters->m_rbx->m_pAddress)); break;
+		case RSP: masm.movq(rsp, AddressOperand(m_pRegisters->m_rsp->m_pAddress)); break;
+		case RBP: masm.movq(rbp, AddressOperand(m_pRegisters->m_rbp->m_pAddress)); break;
+		case RSI: masm.movq(rsi, AddressOperand(m_pRegisters->m_rsi->m_pAddress)); break;
+		case RDI: masm.movq(rdi, AddressOperand(m_pRegisters->m_rdi->m_pAddress)); break;
+
+		// ========================================================================
+		// >> 128-bit XMM registers
+		// ========================================================================
+		// TODO: Also provide movups?
+		// case XMM0: masm.movaps(xmm0, AddressOperand(m_pRegisters->m_xmm0->m_pAddress)); break;
+		// case XMM1: masm.movaps(xmm1, AddressOperand(m_pRegisters->m_xmm1->m_pAddress)); break;
+		// case XMM2: masm.movaps(xmm2, AddressOperand(m_pRegisters->m_xmm2->m_pAddress)); break;
+		// case XMM3: masm.movaps(xmm3, AddressOperand(m_pRegisters->m_xmm3->m_pAddress)); break;
+		// case XMM4: masm.movaps(xmm4, AddressOperand(m_pRegisters->m_xmm4->m_pAddress)); break;
+		// case XMM5: masm.movaps(xmm5, AddressOperand(m_pRegisters->m_xmm5->m_pAddress)); break;
+		// case XMM6: masm.movaps(xmm6, AddressOperand(m_pRegisters->m_xmm6->m_pAddress)); break;
+		// case XMM7: masm.movaps(xmm7, AddressOperand(m_pRegisters->m_xmm7->m_pAddress)); break;
+		// case XMM8: masm.movaps(xmm8, AddressOperand(m_pRegisters->m_xmm8->m_pAddress)); break;
+		// case XMM9: masm.movaps(xmm9, AddressOperand(m_pRegisters->m_xmm9->m_pAddress)); break;
+		// case XMM10: masm.movaps(xmm10, AddressOperand(m_pRegisters->m_xmm10->m_pAddress)); break;
+		// case XMM11: masm.movaps(xmm11, AddressOperand(m_pRegisters->m_xmm11->m_pAddress)); break;
+		// case XMM12: masm.movaps(xmm12, AddressOperand(m_pRegisters->m_xmm12->m_pAddress)); break;
+		// case XMM13: masm.movaps(xmm13, AddressOperand(m_pRegisters->m_xmm13->m_pAddress)); break;
+		// case XMM14: masm.movaps(xmm14, AddressOperand(m_pRegisters->m_xmm14->m_pAddress)); break;
+		// case XMM15: masm.movaps(xmm15, AddressOperand(m_pRegisters->m_xmm15->m_pAddress)); break;
+
+
+		// ========================================================================
+		// >> 80-bit FPU registers
+		// ========================================================================
+		// case ST0:
+		// 	if (type == HOOKTYPE_POST) {
+		// 		// Replace the top of the FPU stack.
+		// 		// Copy st0 to st0 and pop -> just pop the FPU stack.
+		// 		masm.fstp(st0);
+		// 		// Push a value to the FPU stack.
+		// 		// TODO: Only write back when changed? Save full 80bits for that case.
+		// 		//       Avoid truncation of the data if it's unchanged.
+		// 		masm.fld32(AddressOperand(m_pRegisters->m_st0->m_pAddress));
+		// 	}
+		// 	break;
+		//case ST1: masm.movl(st1, tword_ptr_abs(Ptr(m_pRegisters->m_st1->m_pAddress))); break;
+		//case ST2: masm.movl(st2, tword_ptr_abs(Ptr(m_pRegisters->m_st2->m_pAddress))); break;
+		//case ST3: masm.movl(st3, tword_ptr_abs(Ptr(m_pRegisters->m_st3->m_pAddress))); break;
+		//case ST4: masm.movl(st4, tword_ptr_abs(Ptr(m_pRegisters->m_st4->m_pAddress))); break;
+		//case ST5: masm.movl(st5, tword_ptr_abs(Ptr(m_pRegisters->m_st5->m_pAddress))); break;
+		//case ST6: masm.movl(st6, tword_ptr_abs(Ptr(m_pRegisters->m_st6->m_pAddress))); break;
+		//case ST7: masm.movl(st7, tword_ptr_abs(Ptr(m_pRegisters->m_st7->m_pAddress))); break;
+
+		default: puts("Unsupported register.");
+		}
+	}
+}
+#else
+#error "Unsupported architecture"
+#endif
