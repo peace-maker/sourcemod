@@ -281,17 +281,19 @@ public:
 };
 
 #ifdef KE_ARCH_X64
-SourceHook::Asm::x64JitWriter* GenerateThunk(HookSetup* type);
+SourceHook::Asm::x64JitWriter* GenerateThunk(HookSetup* type, SourceHook::CPageAlloc* allocator);
 static DHooksCallback *MakeHandler(HookSetup* hook)
 {
+	SourceHook::CPageAlloc* allocator = new SourceHook::CPageAlloc(16);
 	DHooksCallback *dg = new DHooksCallback();
 	dg->returnType = hook->returnType;
 	dg->oldvtable = *(void ***)dg;
 	dg->newvtable = new void *[3];
 	dg->newvtable[0] = dg->oldvtable[0];
 	dg->newvtable[1] = dg->oldvtable[1];
-	dg->callThunk = GenerateThunk(hook);
+	dg->callThunk = GenerateThunk(hook, allocator);
 	dg->newvtable[2] = dg->callThunk->GetData();
+	delete allocator;
 	*(void ***)dg = dg->newvtable;
 	return dg;
 }
@@ -315,22 +317,7 @@ class DHooksManager
 {
 public:
 	DHooksManager(HookSetup *setup, void *iface, IPluginFunction *remove_callback, IPluginFunction *plugincb, bool post);
-	~DHooksManager()
-	{
-		if(this->hookid)
-		{
-			g_SHPtr->RemoveHookByID(this->hookid);
-			if(this->remove_callback)
-			{
-				this->remove_callback->PushCell(this->hookid);
-				this->remove_callback->Execute(NULL);
-			}
-			if(this->pManager)
-			{
-				g_pHookManager->ReleaseHookMan(this->pManager);
-			}
-		}
-	}
+	~DHooksManager();
 public:
 	intptr_t addr;
 	int hookid;

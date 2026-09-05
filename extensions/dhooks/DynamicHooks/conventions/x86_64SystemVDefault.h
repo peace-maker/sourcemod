@@ -23,3 +23,40 @@
 *
 * 3. This notice may not be removed or altered from any source distribution.
 */
+
+#ifndef _X86_64_SYSTEMV_DEFAULT_H
+#define _X86_64_SYSTEMV_DEFAULT_H
+
+// ============================================================================
+// >> INCLUDES
+// ============================================================================
+#include "../convention.h"
+
+// ============================================================================
+// >> CLASSES
+// ============================================================================
+class x86_64SystemVDefault : public ICallingConvention
+{
+public:
+	x86_64SystemVDefault(std::vector<DataTypeSized_t> &vecArgTypes, DataTypeSized_t returnType, int iAlignment = 8);
+	virtual ~x86_64SystemVDefault();
+
+	virtual std::vector<Register_t> GetRegisters();
+	virtual int GetPopSize();
+	virtual int GetArgStackSize();
+	virtual void** GetStackArgumentPtr(CRegisters* pRegisters);
+	virtual int GetArgRegisterSize();
+	
+	virtual void* GetArgumentPtr(unsigned int iIndex, CRegisters* pRegisters);
+	virtual void ArgumentPtrChanged(unsigned int iIndex, CRegisters* pRegisters, void* pArgumentPtr);
+
+	virtual void* GetReturnPtr(CRegisters* pRegisters);
+	virtual void ReturnPtrChanged(CRegisters* pRegisters, void* pReturnPtr);
+
+private:
+	void* m_pReturnBuffer;
+    Register_t m_intArgRegisters[6] = { RDI, RSI, RDX, RCX, R8, R9 };
+    Register_t m_floatArgRegisters[8] = { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7 };
+};
+
+#endif //_X86_64_SYSTEMV_DEFAULT_H

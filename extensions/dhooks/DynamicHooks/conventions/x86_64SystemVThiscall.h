@@ -2,7 +2,7 @@
 * =============================================================================
 * DynamicHooks
 * Copyright (C) 2015 Robin Gohmert. All rights reserved.
-* Copyright (C) 2018-2021 AlliedModders LLC.  All rights reserved.
+* Copyright (C) 2026 AlliedModders LLC.  All rights reserved.
 * =============================================================================
 *
 * This software is provided 'as-is', without any express or implied warranty.
@@ -31,62 +31,29 @@
 * Adopted to provide similar features to SourceHook by AlliedModders LLC.
 */
 
-#ifndef _MANAGER_H
-#define _MANAGER_H
+#ifndef _X86_GCC_THISCALL_H
+#define _X86_GCC_THISCALL_H
 
 // ============================================================================
 // >> INCLUDES
 // ============================================================================
-#include "hook.h"
-#include "convention.h"
-#include <vector>
+#include "x86_64SystemVDefault.h"
 
 
 // ============================================================================
-// >> CHookManager
+// >> CLASSES
 // ============================================================================
-class CHookManager
+// |this| pointer is always passed as implicit first argument on the stack.
+class x86_64SystemVThiscall: public x86_64SystemVDefault
 {
 public:
-#ifdef DYNAMICHOOKS_x86_64
-	CHookManager();
-#endif
-	/*
-	Hooks the given function and returns a new CHook instance. If the
-	function was already hooked, the existing CHook instance will be
-	returned.
-	*/
-    CHook* HookFunction(void* pFunc, ICallingConvention* pConvention);
-	
-	/*
-	Removes all callbacks and restores the original function.
-	*/
-    void UnhookFunction(void* pFunc);
+	x86_64SystemVThiscall(std::vector<DataTypeSized_t> &vecArgTypes, DataTypeSized_t returnType, int iAlignment = 4);
+	virtual ~x86_64SystemVThiscall();
 
-	/*
-	Returns either NULL or the found CHook instance.
-	*/
-	CHook* FindHook(void* pFunc);
+	virtual int GetArgStackSize();
+	virtual void** GetStackArgumentPtr(CRegisters* pRegisters);
 
-	/*
-	Removes all callbacks and restores all functions.
-	*/
-	void UnhookAllFunctions();
-
-public:
-	std::vector<CHook *> m_Hooks;
-#ifdef DYNAMICHOOKS_x86_64
-	SourceHook::CPageAlloc m_allocator;
-#endif
+	virtual void SaveCallArguments(CRegisters* pRegisters);
 };
 
-
-// ============================================================================
-// >> GetHookManager
-// ============================================================================
-/*
-Returns a pointer to a static CHookManager object.
-*/
-CHookManager* GetHookManager();
-
-#endif // _MANAGER_H
+#endif // _X86_GCC_THISCALL_H

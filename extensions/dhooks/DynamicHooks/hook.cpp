@@ -56,7 +56,10 @@ using namespace sp;
 // ============================================================================
 // >> CHook
 // ============================================================================
-CHook::CHook(void* pFunc, ICallingConvention* pConvention)
+CHook::CHook(void* pFunc, ICallingConvention* pConvention, SourceHook::CPageAlloc* allocator)
+#ifdef DYNAMICHOOKS_x86_64
+	: m_bridge(allocator), m_postCallback(allocator)
+#endif
 {
 	m_pFunc = pFunc;
 	m_pRegisters = new CRegisters(pConvention->GetRegisters());
@@ -206,6 +209,8 @@ void* __cdecl CHook::GetReturnAddress(void* pESP)
 	void *pRetAddr = r->value.back();
 	r->value.pop_back();
 
+	g_pSM->LogMessage(myself, "pop returnaddr %p for %p", pRetAddr, pESP);
+
 	// Clear the stack address from the cache now that we ran the last post hook.
 	if (r->value.empty())
 		m_RetAddr.remove(r);
@@ -219,12 +224,12 @@ void __cdecl CHook::SetReturnAddress(void* pRetAddr, void* pESP)
 	if (!i.found())
 		m_RetAddr.add(i, pESP, std::vector<void *>());
 
+	g_pSM->LogMessage(myself, "push returnaddr %p for %p", pRetAddr, pESP);
 	i->value.push_back(pRetAddr);
 }
 
 #ifdef DYNAMICHOOKS_x86_64
 using namespace SourceHook::Asm;
-SourceHook::CPageAlloc SourceHook::Asm::GenBuffer::ms_Allocator(16);
 
 void PrintFunc(const char* message) {
 	g_pSM->LogMessage(myself, message);
@@ -233,7 +238,7 @@ void PrintFunc(const char* message) {
 void PrintDebug(x64JitWriter& jit, const char* message) {
 	// LogMessage has variadic parameters, this shouldn't be problem on x86_64
 	// but paranoia calls for safety
-	/*
+
 	union {
 		void (*PrintFunc)(const char* message);
 		std::uint64_t address;
@@ -243,6 +248,7 @@ void PrintDebug(x64JitWriter& jit, const char* message) {
 
 	// Shadow space
 	MSVC_ONLY(jit.sub(rsp, 40));
+	GCC_ONLY(jit.sub(rsp, 8));
 
 	MSVC_ONLY(jit.mov(rcx, reinterpret_cast<std::uint64_t>(message)));
 	GCC_ONLY(jit.mov(rdi, reinterpret_cast<std::uint64_t>(message)));
@@ -251,24 +257,26 @@ void PrintDebug(x64JitWriter& jit, const char* message) {
 	jit.call(rax);
 
 	// Free shadow space
-	MSVC_ONLY(jit.add(rsp, 40));*/
+	MSVC_ONLY(jit.add(rsp, 40));
+	GCC_ONLY(jit.add(rsp, 8));
 }
 
 void _PrintRegs(std::uint64_t* rsp, int numregs) {
 	g_pSM->LogMessage(myself, "RSP - %p", rsp);
 
 	for (int i = 0; i < numregs; i++) {
-		g_pSM->LogMessage(myself, "RSP[%d] - %llu", i, rsp[i]);
+		g_pSM->LogMessage(myself, "RSP[%d] - %llx", i, rsp[i]);
 	}
 }
 
 void PrintRegisters(x64JitWriter& jit) {
-	/*
+	
 	union {
 		void (*PrintRegs)(std::uint64_t* rsp, int numregs);
 		std::uint64_t address;
 	} func;
 	func.PrintRegs = &_PrintRegs;
+#ifdef _WIN32
 	// Rax is pushed twice to keep the stack aligned
 	jit.push(rax);
 	jit.push(rax);
@@ -289,7 +297,29 @@ void PrintRegisters(x64JitWriter& jit) {
 	jit.pop(rdx);
 	jit.pop(rcx);
 	jit.pop(rax);
-	jit.pop(rax);*/
+	jit.pop(rax);
+#else
+	jit.push(rax);
+	jit.push(rdi);
+	jit.push(rsi);
+	jit.push(rdx);
+	jit.push(rcx);
+	jit.push(r8);
+	jit.push(r9);
+
+	jit.mov(rdi, rsp);
+	jit.mov(rsi, 7);
+	jit.mov(rax, func.address);
+	jit.call(rax);
+
+	jit.pop(r9);
+	jit.pop(r8);
+	jit.pop(rcx);
+	jit.pop(rdx);
+	jit.pop(rsi);
+	jit.pop(rdi);
+	jit.pop(rax);
+#endif
 }
 
 void CHook::CreateBridge()
@@ -297,7 +327,7 @@ void CHook::CreateBridge()
 	auto& jit = m_bridge;
 
 	//jit.breakpoint();
-	PrintRegisters(jit);
+	//PrintRegisters(jit);
 
 	// Save registers right away
 	Write_SaveRegisters(jit, HOOKTYPE_PRE);
@@ -318,7 +348,7 @@ void CHook::CreateBridge()
 	std::int32_t jumpOff = jit.get_outputpos();
 
 	// Dump regs
-	PrintRegisters(jit);
+	//PrintRegisters(jit);
 
 	// Jump to the trampoline
 	jit.sub(rsp, 8);
@@ -350,8 +380,29 @@ void CHook::CreateBridge()
 
 void CHook::Write_ModifyReturnAddress(x64JitWriter& jit)
 {
+	// Save scratch registers that are used by SetReturnAddress
+	static void* pRCX = NULL;
+	static void* pRDX = NULL;
+	static void* pRDI = NULL;
+	static void* pRSI = NULL;
+	static void* pR8 = NULL;
+	static void* pR9 = NULL;
+	jit.push(rax);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRCX));
+	jit.mov(rax(), rcx);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDX));
+	jit.mov(rax(), rdx);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDI));
+	jit.mov(rax(), rdi);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRSI));
+	jit.mov(rax(), rsi);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR8));
+	jit.mov(rax(), r8);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR9));
+	jit.mov(rax(), r9);
+
 	// Store the return address in rax
-	jit.mov(rax, rsp());
+	jit.mov(rax, rsp(8));
 	
 	// Save the original return address by using the current esp as the key.
 	// This should be unique until we have returned to the original caller.
@@ -363,7 +414,8 @@ void CHook::Write_ModifyReturnAddress(x64JitWriter& jit)
 	func.SetReturnAddress = &CHook::SetReturnAddress;
 
 	// Shadow space 32 bytes + 8 bytes to keep it aligned on 16 bytes
-	MSVC_ONLY(jit.sub(rsp, 40));
+	MSVC_ONLY(jit.sub(rsp, 32));
+	//GCC_ONLY(jit.sub(rsp, 8));
 
 	// 1st param (this)
 	GCC_ONLY(jit.mov(rdi, reinterpret_cast<std::uint64_t>(this)));
@@ -374,7 +426,7 @@ void CHook::Write_ModifyReturnAddress(x64JitWriter& jit)
 	MSVC_ONLY(jit.mov(rdx, rax));
 
 	// 3rd parameter (rsp)
-	GCC_ONLY(jit.lea(rdx, rsp()));
+	GCC_ONLY(jit.lea(rdx, rsp(8)));
 	MSVC_ONLY(jit.lea(r8, rsp(40)));
 
 	// Call SetReturnAddress
@@ -382,8 +434,24 @@ void CHook::Write_ModifyReturnAddress(x64JitWriter& jit)
 	jit.call(rax);
 
 	// Free shadow space
-	MSVC_ONLY(jit.add(rsp, 40));
-	
+	MSVC_ONLY(jit.add(rsp, 32));
+	//GCC_ONLY(jit.add(rsp, 8));
+
+	// Restore scratch registers
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRCX));
+	jit.mov(rcx, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDX));
+	jit.mov(rdx, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDI));
+	jit.mov(rdi, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRSI));
+	jit.mov(rsi, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR8));
+	jit.mov(r8, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR9));
+	jit.mov(r9, rax());
+	jit.pop(rax);
+
 	// Override the return address. This is a redirect to our post-hook code
 	CreatePostCallback();
 	jit.mov(rax, reinterpret_cast<std::uint64_t>(&m_pNewRetAddr));
@@ -395,20 +463,43 @@ void CHook::CreatePostCallback()
 {
 	auto& jit = m_postCallback;
 
-	jit.sub(rsp, 8);
-	PrintRegisters(jit);
+	int iPopSize = m_pCallingConvention->GetPopSize();
+	jit.sub(rsp, iPopSize + sizeof(void*));
 
 	// Save registers right away
-	Write_SaveRegisters(jit, HOOKTYPE_POST);
+	//Write_SaveRegisters(jit, HOOKTYPE_POST);
 
+	//PrintRegisters(jit);
 	PrintDebug(jit, "Hook post");
-	PrintRegisters(jit);
 
 	// Call the post-hook handler
 	Write_CallHandler(jit, HOOKTYPE_POST);
 
 	// Restore the previously saved registers, so any changes will be applied
 	Write_RestoreRegisters(jit, HOOKTYPE_POST);
+
+	PrintDebug(jit, "Restoring scratch registers");
+
+	// Save scratch registers that are used by GetReturnAddress
+	static void* pRCX = NULL;
+	static void* pRDX = NULL;
+	static void* pRDI = NULL;
+	static void* pRSI = NULL;
+	static void* pR8 = NULL;
+	static void* pR9 = NULL;
+	jit.push(rax);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRCX));
+	jit.mov(rax(), rcx);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDX));
+	jit.mov(rax(), rdx);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDI));
+	jit.mov(rax(), rdi);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRSI));
+	jit.mov(rax(), rsi);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR8));
+	jit.mov(rax(), r8);
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR9));
+	jit.mov(rax(), r9);
 
 	// Get return address
 	union
@@ -419,14 +510,15 @@ void CHook::CreatePostCallback()
 	func.GetReturnAddress = &CHook::GetReturnAddress;
 
 	// Shadow space 32 bytes + 8 bytes to keep it aligned on 16 bytes
-	MSVC_ONLY(jit.sub(rsp, 40));
+	//GCC_ONLY(jit.sub(rsp, 8));
+	MSVC_ONLY(jit.sub(rsp, 32));
 
 	// 1st param (this)
 	GCC_ONLY(jit.mov(rdi, reinterpret_cast<std::uint64_t>(this)));
 	MSVC_ONLY(jit.mov(rcx, reinterpret_cast<std::uint64_t>(this)));
 
 	// 2n parameter (rsp)
-	GCC_ONLY(jit.lea(rsi, rsp()));
+	GCC_ONLY(jit.lea(rsi, rsp(8)));
 	MSVC_ONLY(jit.lea(rdx, rsp(40)));
 
 	// Call GetReturnAddress
@@ -434,11 +526,32 @@ void CHook::CreatePostCallback()
 	jit.call(rax);
 
 	// Free shadow space
-	MSVC_ONLY(jit.add(rsp, 40));
+	//GCC_ONLY(jit.add(rsp, 8));
+	MSVC_ONLY(jit.add(rsp, 32));
 
+	// replace return address with the original return address
+	jit.mov(rsp(8), rax);
+
+	// Restore scratch registers
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRCX));
+	jit.mov(rcx, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDX));
+	jit.mov(rdx, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRDI));
+	jit.mov(rdi, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pRSI));
+	jit.mov(rsi, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR8));
+	jit.mov(r8, rax());
+	jit.mov(rax, reinterpret_cast<std::uint64_t>(&pR9));
+	jit.mov(r9, rax());
+	jit.pop(rax);
+	
 	// Jump to the original return address
-	jit.add(rsp, 8);
-	jit.jump(rax);
+	// jit.add(rsp, iPopSize + sizeof(void*));
+	// jit.jump(rax);
+	// jit.write_ubyte(0xCC);
+	jit.retn();
 }
 
 void CHook::Write_CallHandler(x64JitWriter& jit, HookType_t type)
@@ -451,9 +564,12 @@ void CHook::Write_CallHandler(x64JitWriter& jit, HookType_t type)
 
 	func.HookHandler = &CHook::HookHandler;
 
+	PrintDebug(jit, "Calling hook handler");
+	
 	// Shadow space 32 bytes + 8 bytes to keep it aligned on 16 bytes
+	/*GCC_ONLY(jit.sub(rsp, 8));
 	MSVC_ONLY(jit.sub(rsp, 40));
-
+	
 	// Call the global hook handler
 
 	// 1st param (this)
@@ -466,9 +582,12 @@ void CHook::Write_CallHandler(x64JitWriter& jit, HookType_t type)
 
 	jit.mov(rax, func.address);
 	jit.call(rax);
-	
+
 	// Free shadow space
-	MSVC_ONLY(jit.add(rsp, 40));
+	GCC_ONLY(jit.add(rsp, 8));
+	MSVC_ONLY(jit.add(rsp, 40));*/
+
+	PrintDebug(jit, "Hook handler returned");
 }
 
 void CHook::Write_SaveRegisters(x64JitWriter& jit, HookType_t type)

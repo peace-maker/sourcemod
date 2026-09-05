@@ -37,6 +37,7 @@
 #ifdef DYNAMICHOOKS_x86_64
 #include "conventions/x86_64MicrosoftDefault.h"
 typedef x86_64MicrosoftDefault x86_64DetourCall;
+typedef x86_64MicrosoftThiscall x86_64DetourThisCall;
 #else
 #include "conventions/x86MsCdecl.h"
 #include "conventions/x86MsThiscall.h"
@@ -49,6 +50,10 @@ typedef x86MsFastcall x86DetourFastCall;
 #endif
 #elif defined KE_LINUX
 #ifdef DYNAMICHOOKS_x86_64
+#include "conventions/x86_64SystemVDefault.h"
+#include "conventions/x86_64SystemVThiscall.h"
+typedef x86_64SystemVDefault x86_64DetourCall;
+typedef x86_64SystemVThiscall x86_64DetourThisCall;
 #else
 #include "conventions/x86GccCdecl.h"
 #include "conventions/x86GccThiscall.h"
@@ -270,11 +275,13 @@ ICallingConvention *ConstructCallingConvention(HookSetup *setup)
 	switch (setup->callConv)
 	{
 #ifdef DYNAMICHOOKS_x86_64
-	case CallConv_THISCALL:
 	case CallConv_CDECL:
 	case CallConv_STDCALL:
 	case CallConv_FASTCALL:
-		pCallConv = new x86_64DetourCall(vecArgTypes, returnType);
+		pCallConv = new x86_64DetourCall(vecArgTypes, returnType, 8);
+		break;
+	case CallConv_THISCALL:
+		pCallConv = new x86_64DetourThisCall(vecArgTypes, returnType, 8);
 		break;
 #else
 	case CallConv_CDECL:
@@ -357,7 +364,8 @@ ReturnAction_t HandleDetour(HookType_t hookType, CHook* pDetour)
 	int argNum = pDetour->m_pCallingConvention->m_vecArgTypes.size();
 	// Keep a copy of the last return value if some plugin wants to override or supercede the function.
 	ReturnAction_t finalRet = ReturnAction_Ignored;
-	std::unique_ptr<uint8_t[]> finalRetBuf = std::make_unique<uint8_t[]>(pDetour->m_pCallingConvention->m_returnType.size);
+	std::unique_ptr<uint8_t[]> finalRetBuf = std::make_unique<uint8_t[]>(pDetour->m_pCallingConvention->m_returnType.size + 1);
+	smutils->LogMessage(myself, "Calling %d plugin allocating %d bytes @%p for hooktype %d", (int)wrappers->size(), pDetour->m_pCallingConvention->m_returnType.size, finalRetBuf.get(), hookType);
 
 	// Call all the plugin functions..
 	for (size_t i = 0; i < wrappers->size(); i++)
@@ -387,7 +395,7 @@ ReturnAction_t HandleDetour(HookType_t hookType, CHook* pDetour)
 					std::int64_t addr = reinterpret_cast<std::int64_t>(thisAddr);
 					pWrapper->plugin_callback->PushArray(reinterpret_cast<cell_t*>(&addr), 2);
 				} else {
-					pWrapper->plugin_callback->PushCell((cell_t)thisAddr);
+					pWrapper->plugin_callback->PushCell(static_cast<cell_t>(reinterpret_cast<uintptr_t>(thisAddr)));
 				}
 			}
 		}
@@ -667,7 +675,7 @@ HookParamsStruct *CDynamicHooksSourcePawn::GetParamStruct()
 
 	// Save the old parameters passed in a register.
 	size_t offset = stackSize;
-	for (size_t i = firstArg; i < numArgs; i++)
+	for (size_t i = 0; i < numArgs; i++)
 	{
 		// We already saved the stack arguments.
 		if (argTypes[i].custom_register == None)

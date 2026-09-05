@@ -128,7 +128,9 @@ public:
 	//virtual bool SDK_OnMetamodPauseChange(bool paused, char *error, size_t maxlength);
 #endif
 };
+#if !defined _LINUX || !defined KE_ARCH_X64
 extern SourceHook::IHookManagerAutoGen *g_pHookManager;
+#endif
 extern sp_nativeinfo_t g_Natives[];
 extern std::thread::id g_MainThreadId;
 #endif // _INCLUDE_SOURCEMOD_EXTENSION_PROPER_H_

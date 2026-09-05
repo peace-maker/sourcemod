@@ -56,6 +56,11 @@
 # define MSVC_ONLY(x)
 #endif
 
+#else
+namespace SourceHook
+{
+	class CPageAlloc;
+}
 #endif
 
 // ============================================================================
@@ -127,7 +132,7 @@ private:
 	@param <pConvention>:
 	The calling convention of <pFunc>.
 	*/
-	CHook(void* pFunc, ICallingConvention* pConvention);
+	CHook(void* pFunc, ICallingConvention* pConvention, SourceHook::CPageAlloc* allocator = nullptr);
 	~CHook();
 
 public:

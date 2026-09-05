@@ -2,7 +2,7 @@
 * =============================================================================
 * DynamicHooks
 * Copyright (C) 2015 Robin Gohmert. All rights reserved.
-* Copyright (C) 2018-2021 AlliedModders LLC.  All rights reserved.
+* Copyright (C) 2026 AlliedModders LLC.  All rights reserved.
 * =============================================================================
 *
 * This software is provided 'as-is', without any express or implied warranty.
@@ -34,81 +34,54 @@
 // ============================================================================
 // >> INCLUDES
 // ============================================================================
-#include "manager.h"
+#include "x86_64SystemVThiscall.h"
 
 
 // ============================================================================
-// >> CHookManager
+// >> CLASSES
 // ============================================================================
-#ifdef DYNAMICHOOKS_x86_64
-CHookManager::CHookManager() : m_allocator(16) {}
-#endif
 
-CHook* CHookManager::HookFunction(void* pFunc, ICallingConvention* pConvention)
+x86_64SystemVThiscall::x86_64SystemVThiscall(std::vector<DataTypeSized_t> &vecArgTypes, DataTypeSized_t returnType, int iAlignment) :
+	x86_64SystemVDefault(vecArgTypes, returnType, iAlignment)
 {
-	if (!pFunc)
-		return NULL;
+	// Always add the |this| pointer.
+	DataTypeSized_t type;
+	type.type = DATA_TYPE_POINTER;
+	type.size = GetDataTypeSize(type, iAlignment);
+	type.custom_register = None;
+	m_vecArgTypes.insert(m_vecArgTypes.begin(), type);
+}
 
-	CHook* pHook = FindHook(pFunc);
-	if (pHook)
-	{
-		delete pConvention;
-		return pHook;
+x86_64SystemVThiscall::~x86_64SystemVThiscall()
+{
+}
+
+int x86_64SystemVThiscall::GetArgStackSize()
+{
+	// Remove the this pointer from the arguments size.
+	DataTypeSized_t type;
+	type.type = DATA_TYPE_POINTER;
+	return x86_64SystemVDefault::GetArgStackSize() - GetDataTypeSize(type, m_iAlignment);
+}
+
+void** x86_64SystemVThiscall::GetStackArgumentPtr(CRegisters* pRegisters)
+{
+	// Skip return address and this pointer.
+	DataTypeSized_t type;
+	type.type = DATA_TYPE_POINTER;
+	return (void **)(pRegisters->m_rsp->GetValue<uintptr_t>() + 8 + GetDataTypeSize(type, m_iAlignment));
+}
+
+void x86_64SystemVThiscall::SaveCallArguments(CRegisters* pRegisters)
+{
+	// Count the this pointer.
+	int size = x86_64SystemVDefault::GetArgStackSize() + GetArgRegisterSize();
+	std::unique_ptr<uint8_t[]> pSavedCallArguments = std::make_unique<uint8_t[]>(size);
+	size_t offset = 0;
+	for (size_t i = 0; i < m_vecArgTypes.size(); i++) {
+		DataTypeSized_t &type = m_vecArgTypes[i];
+		memcpy((void *)((uintptr_t)pSavedCallArguments.get() + offset), GetArgumentPtr(i, pRegisters), type.size);
+		offset += type.size;
 	}
-#ifdef DYNAMICHOOKS_x86_64
-	pHook = new CHook(pFunc, pConvention, &m_allocator);
-#else
-	pHook = new CHook(pFunc, pConvention);
-#endif
-	m_Hooks.push_back(pHook);
-	return pHook;
-}
-
-void CHookManager::UnhookFunction(void* pFunc)
-{
-	if (!pFunc)
-		return;
-
-	for (size_t i = 0; i < m_Hooks.size(); i++)
-	{
-		CHook* pHook = m_Hooks[i];
-		if (pHook->m_pFunc == pFunc)
-		{
-			m_Hooks.erase(m_Hooks.begin() + i);
-			delete pHook;
-			return;
-		}
-	}
-}
-
-CHook* CHookManager::FindHook(void* pFunc)
-{
-	if (!pFunc)
-		return NULL;
-
-	for(size_t i = 0; i < m_Hooks.size(); i++)
-	{
-		CHook* pHook = m_Hooks[i];
-		if (pHook->m_pFunc == pFunc)
-			return pHook;
-	}
-	return NULL;
-}
-
-void CHookManager::UnhookAllFunctions()
-{
-	for(size_t i = 0; i < m_Hooks.size(); i++)
-		delete m_Hooks[i];
-
-	m_Hooks.clear();
-}
-
-
-// ============================================================================
-// >> GetHookManager
-// ============================================================================
-CHookManager* GetHookManager()
-{
-	static CHookManager* s_pManager = new CHookManager;
-	return s_pManager;
+	m_pSavedCallArguments.push_back(std::move(pSavedCallArguments));
 }

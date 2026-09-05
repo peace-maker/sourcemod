@@ -56,9 +56,9 @@ using namespace sp;
 #ifdef KE_ARCH_X64
 using namespace SourceHook::Asm;
 
-SourceHook::Asm::x64JitWriter* GenerateThunk(HookSetup* hook)
+SourceHook::Asm::x64JitWriter* GenerateThunk(HookSetup* hook, SourceHook::CPageAlloc* allocator)
 {
-	auto masm = new x64JitWriter();
+	auto masm = new x64JitWriter(allocator);
 	auto type = hook->returnType;
 
 	// We're going to transform rbp into our stack
@@ -240,6 +240,7 @@ void *GenerateThunk(HookSetup* hook)
 
 DHooksManager::DHooksManager(HookSetup *setup, void *iface, IPluginFunction *remove_callback, IPluginFunction *plugincb, bool post)
 {
+	assert(g_pHookManager != NULL);
 	this->callback = MakeHandler(setup);
 	this->hookid = 0;
 	this->remove_callback = remove_callback;
@@ -297,6 +298,23 @@ DHooksManager::DHooksManager(HookSetup *setup, void *iface, IPluginFunction *rem
 
 	this->hookid = g_SHPtr->AddHook(g_PLID,ISourceHook::Hook_Normal, iface, 0, this->pManager, this->callback, this->callback->post);
 }
+
+DHooksManager::~DHooksManager()
+	{
+		if(this->hookid)
+		{
+			g_SHPtr->RemoveHookByID(this->hookid);
+			if(this->remove_callback)
+			{
+				this->remove_callback->PushCell(this->hookid);
+				this->remove_callback->Execute(NULL);
+			}
+			if(this->pManager)
+			{
+				g_pHookManager->ReleaseHookMan(this->pManager);
+			}
+		}
+	}
 
 void CleanupHooks(IPluginContext *pContext)
 {
@@ -514,7 +532,7 @@ void *Callback(DHooksCallback *dg, void **argStack)
 				std::int64_t addr = reinterpret_cast<std::int64_t>(thisAddr);
 				dg->plugin_callback->PushArray(reinterpret_cast<cell_t*>(&addr), 2);
 			} else {
-				dg->plugin_callback->PushCell((cell_t)thisAddr);
+				dg->plugin_callback->PushCell(static_cast<cell_t>(reinterpret_cast<uintptr_t>(thisAddr)));
 			}
 		}
 	}
@@ -712,7 +730,7 @@ float Callback_float(DHooksCallback *dg, void **argStack)
 				std::int64_t addr = reinterpret_cast<std::int64_t>(thisAddr);
 				dg->plugin_callback->PushArray(reinterpret_cast<cell_t*>(&addr), 2);
 			} else {
-				dg->plugin_callback->PushCell((cell_t)thisAddr);
+				dg->plugin_callback->PushCell(static_cast<cell_t>(reinterpret_cast<uintptr_t>(thisAddr)));
 			}
 		}
 	}
@@ -883,7 +901,7 @@ SDKVector *Callback_vector(DHooksCallback *dg, void **argStack)
 				std::int64_t addr = reinterpret_cast<std::int64_t>(thisAddr);
 				dg->plugin_callback->PushArray(reinterpret_cast<cell_t*>(&addr), 2);
 			} else {
-				dg->plugin_callback->PushCell((cell_t)thisAddr);
+				dg->plugin_callback->PushCell(static_cast<cell_t>(reinterpret_cast<uintptr_t>(thisAddr)));
 			}
 		}
 	}
@@ -1051,7 +1069,7 @@ string_t *Callback_stringt(DHooksCallback *dg, void **argStack)
 				std::int64_t addr = reinterpret_cast<std::int64_t>(thisAddr);
 				dg->plugin_callback->PushArray(reinterpret_cast<cell_t*>(&addr), 2);
 			} else {
-				dg->plugin_callback->PushCell((cell_t)thisAddr);
+				dg->plugin_callback->PushCell(static_cast<cell_t>(reinterpret_cast<uintptr_t>(thisAddr)));
 			}
 		}
 	}
